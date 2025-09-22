@@ -10,9 +10,9 @@ fn main() {
         let s1 = tx.clone();
         move || {
             let mut x = 0.;
-            loop {
+            for _ in 0..5 {
                 std::thread::sleep(Duration::from_millis(200));
-                s1.send(x);
+                s1.send(x).unwrap();
                 x += 1.;
             }
         }
@@ -22,9 +22,9 @@ fn main() {
         let s2 = tx.clone();
         move || {
             let mut x = 990.;
-            loop {
+            for _ in 0..3 {
                 std::thread::sleep(Duration::from_millis(400));
-                s1.send(x);
+                s2.send(x).unwrap();
                 x /= 3.;
             }
         }
@@ -36,8 +36,14 @@ fn main() {
         let rx_1 = rx.clone();
         move || {
             loop {
-                if let Ok(msg) = rx_1.try_recv() {
-                    println!("Value: {msg}");
+                match rx_1.try_recv() {
+                    Ok(msg) => {
+                        println!("Value: {msg}");
+                    }
+                    Err(TryRecvError::Disconnected) => {
+                        break;
+                    }
+                    Err(_) => {}
                 }
             }
         }
@@ -51,4 +57,11 @@ fn main() {
             }
         }
     });
+
+    let handles = [sender_1, sender_2, receiver_1, receiver_2];
+    loop {
+        if handles.iter().all(|handle| handle.is_finished()) {
+            break;
+        }
+    }
 }

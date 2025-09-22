@@ -15,3 +15,12 @@ impl<T: Clone> Clone for Receiver<T> {
         todo!()
     }
 }
+
+impl<T: Clone> Receiver<T> {
+    pub fn try_recv(&self) -> Result<T, TryRecvError> {
+        todo!()
+    }
+    pub fn recv(&self) -> Result<T, RecvError> {
+        todo!()
+    }
+}
