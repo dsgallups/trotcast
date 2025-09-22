@@ -10,8 +10,3 @@ impl<T> Receiver<T> {
         Self { shared, id: 0 }
     }
 }
-impl<T: Clone> Clone for Receiver<T> {
-    fn clone(&self) -> Self {
-        todo!()
-    }
-}
