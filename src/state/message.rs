@@ -118,6 +118,9 @@ impl<T> Messages<T> {
         let state = unsafe { &mut *self.ring[my_pos].state.get() };
         state.required_reads = num_readers.load(Ordering::Acquire);
         state.val = Some(value);
+        self.ring[my_pos]
+            .check_writing
+            .store(false, Ordering::SeqCst);
         Ok(())
     }
 }
