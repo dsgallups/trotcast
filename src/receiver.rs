@@ -26,6 +26,9 @@ impl<T: Clone> Receiver<T> {
         self.recv_inner(RecvCondition::Try).map_err(|e| match e {
             InnerRecvError::Disconnected => TryRecvError::Disconnected,
             InnerRecvError::Empty => TryRecvError::Empty,
+            InnerRecvError::Invalid => {
+                panic!("invalidness");
+            }
         })
     }
     pub fn recv(&mut self) -> Result<T, RecvError> {
@@ -38,13 +41,13 @@ impl<T: Clone> Receiver<T> {
         if self.closed {
             return Err(InnerRecvError::Disconnected);
         }
-        let pos = self.shared.read_next(self.id);
+        let pos = self.shared.read_next(self.id, cond);
 
         todo!()
     }
 }
 
-enum RecvCondition {
+pub(crate) enum RecvCondition {
     Try,
     Block,
 }

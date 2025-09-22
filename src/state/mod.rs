@@ -2,14 +2,14 @@ mod inner;
 mod message;
 mod option;
 
-use std::{
-    collections::HashMap,
-    sync::{RwLock, atomic::AtomicUsize},
-};
+use std::sync::atomic::AtomicUsize;
 
 use crate::{
     prelude::*,
-    state::{inner::StateInner, message::Messages},
+    state::{
+        inner::StateInner,
+        message::{MessageReadErr, Messages},
+    },
 };
 
 /// TODO: we will need to
@@ -34,10 +34,21 @@ impl<T: Clone> State<T> {
     pub(crate) fn send(&self, value: T) -> Result<(), SendError<T>> {
         self.messages.send(value, &self.inner)
     }
-    pub(crate) fn read_next(&self, id: usize) -> Result<T, InnerRecvError> {
+    pub(crate) fn read_next(&self, id: usize, cond: RecvCondition) -> Result<T, InnerRecvError> {
         let tail = self.inner.get_tail(id)?;
-        let msg = self.messages.read(tail)?.ok_or(InnerRecvError::Empty)?;
+        let res = match self.messages.read(tail, cond) {
+            Ok(val) => val.ok_or(InnerRecvError::Empty),
+            Err(e) => match e {
+                MessageReadErr::BusyWriting => {
+                    todo!()
+                }
+            },
+        }?;
         self.inner.increment_tail(id)?;
-        Ok(msg)
+        Ok(res)
     }
+}
+
+fn ring_id(val: usize, len: usize) -> usize {
+    (val + 1) % len
 }

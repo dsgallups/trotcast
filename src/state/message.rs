@@ -8,7 +8,8 @@ use std::{
 
 use crate::{
     error::{InnerRecvError, SendError},
-    state::inner::StateInner,
+    prelude::RecvCondition,
+    state::{inner::StateInner, ring_id},
 };
 
 pub(super) struct Messages<T> {
@@ -80,13 +81,14 @@ impl<T: Clone> Messages<T> {
         // right now, we're going to naively loop.
         let my_pos = loop {
             if i == self.len {
-                let prev_pos = if i == 0 { 0 } else { (tail + i) % self.len };
+                let prev_pos = ring_id(i.saturating_sub(1), self.len);
                 self.ring[prev_pos]
                     .check_writing
                     .store(false, Ordering::SeqCst);
                 return Err(SendError::Full(value));
             }
-            let try_pos = (tail + i + 1) % self.len;
+
+            let try_pos = ring_id(tail + i, self.len);
             if self.ring[try_pos]
                 .check_writing
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -140,9 +142,31 @@ impl<T: Clone> Messages<T> {
         Ok(())
     }
 
-    pub fn read(&self, index: usize) -> Result<Option<T>, InnerRecvError> {
+    /// ASSUMES THAT INDEX IS VALID
+    pub fn read(&self, index: usize, cond: RecvCondition) -> Result<Option<T>, MessageReadErr> {
+        //need to wait
+        loop {
+            match cond {
+                RecvCondition::Block => {
+                    if self.ring[index].check_writing.load(Ordering::SeqCst) {
+                        continue;
+                    }
+                }
+                RecvCondition::Try => {
+                    if self.ring[index].check_writing.load(Ordering::SeqCst) {
+                        return Err(MessageReadErr::BusyWriting);
+                    }
+                    break;
+                }
+            }
+        }
+        //let val = self.ring[index];
         todo!()
     }
+}
+
+pub(crate) enum MessageReadErr {
+    BusyWriting,
 }
 
 struct Seat<T> {
