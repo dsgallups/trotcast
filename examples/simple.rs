@@ -33,7 +33,7 @@ fn main() {
     // both receiver_1 and receiver_2 will recieve the same messages
 
     let receiver_1 = thread::spawn({
-        let rx_1 = rx.clone();
+        let mut rx_1 = rx.clone();
         move || {
             loop {
                 match rx_1.try_recv() {
@@ -50,7 +50,7 @@ fn main() {
     });
 
     let receiver_2 = thread::spawn({
-        let rx_2 = rx.clone();
+        let mut rx_2 = rx.clone();
         move || {
             while let Ok(msg) = rx_2.recv() {
                 println!("RX2 msg: {msg}");
