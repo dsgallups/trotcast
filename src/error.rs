@@ -12,4 +12,5 @@ pub enum RecvError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SendError<T> {
     Disconnected(T),
+    Full(T),
 }

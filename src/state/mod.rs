@@ -9,6 +9,7 @@ use crate::{prelude::*, state::message::Messages};
 /// map dropped receivers to indices.
 pub struct State<T> {
     state: Messages<T>,
+    num_readers: AtomicUsize,
     //positions: ReceiverPositions,
     next_receiver_id: AtomicUsize,
 }
@@ -19,14 +20,11 @@ impl<T> State<T> {
         len += 1;
         Self {
             state: Messages::new(len),
+            num_readers: AtomicUsize::new(0),
             next_receiver_id: AtomicUsize::new(0),
         }
     }
     pub(crate) fn send(&self, value: T) -> Result<(), SendError<T>> {
-        {
-            let mut writer = self.state.write().unwrap();
-            writer.send(value)
-        }
-        todo!()
+        self.state.send(value, &self.num_readers)
     }
 }
