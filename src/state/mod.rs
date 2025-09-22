@@ -34,16 +34,9 @@ impl<T: Clone> State<T> {
     pub(crate) fn send(&self, value: T) -> Result<(), SendError<T>> {
         self.messages.send(value, &self.inner)
     }
-    pub(crate) fn read_next(&self, id: usize, cond: RecvCondition) -> Result<T, InnerRecvError> {
+    pub(crate) fn read_next(&self, id: usize) -> Result<Option<T>, MessageReadErr> {
         let tail = self.inner.get_tail(id)?;
-        let res = match self.messages.read(tail, cond) {
-            Ok(val) => val.ok_or(InnerRecvError::Empty),
-            Err(e) => match e {
-                MessageReadErr::BusyWriting => {
-                    todo!()
-                }
-            },
-        }?;
+        let res = self.messages.read(tail)?;
         self.inner.increment_tail(id)?;
         Ok(res)
     }

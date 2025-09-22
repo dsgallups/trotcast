@@ -41,7 +41,7 @@ impl<T: Clone> Receiver<T> {
         if self.closed {
             return Err(InnerRecvError::Disconnected);
         }
-        let pos = self.shared.read_next(self.id, cond);
+        let pos = self.shared.read_next(self.id);
 
         todo!()
     }

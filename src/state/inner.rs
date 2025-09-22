@@ -3,7 +3,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use crate::error::InnerRecvError;
+use crate::state::message::MessageReadErr;
 
 #[derive(Default)]
 pub struct StateInner {
@@ -12,12 +12,12 @@ pub struct StateInner {
 }
 
 impl StateInner {
-    pub fn get_tail(&self, id: usize) -> Result<usize, InnerRecvError> {
-        let state = self.readers.get(&id).ok_or(InnerRecvError::Invalid)?;
+    pub fn get_tail(&self, id: usize) -> Result<usize, MessageReadErr> {
+        let state = self.readers.get(&id).ok_or(MessageReadErr::InvalidReader)?;
         Ok(state.pos.load(Ordering::Relaxed))
     }
-    pub fn increment_tail(&self, id: usize) -> Result<(), InnerRecvError> {
-        let state = self.readers.get(&id).ok_or(InnerRecvError::Invalid)?;
+    pub fn increment_tail(&self, id: usize) -> Result<(), MessageReadErr> {
+        let state = self.readers.get(&id).ok_or(MessageReadErr::InvalidReader)?;
         state.pos.fetch_add(1, Ordering::Relaxed);
         Ok(())
     }

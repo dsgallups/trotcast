@@ -1,13 +1,12 @@
 use core::fmt;
 use std::{
     cell::UnsafeCell,
-    marker::PhantomData,
     ops::Deref,
-    sync::atomic::{self, AtomicBool, AtomicPtr, AtomicUsize, Ordering},
+    sync::atomic::{self, AtomicBool, AtomicUsize, Ordering},
 };
 
 use crate::{
-    error::{InnerRecvError, SendError},
+    error::SendError,
     prelude::RecvCondition,
     state::{inner::StateInner, ring_id},
 };
@@ -15,6 +14,7 @@ use crate::{
 pub(super) struct Messages<T> {
     /// a ring buffer.
     ring: Vec<Seat<T>>,
+    /// in theory, this is used to point where the tail will be.
     writer_tail: AtomicUsize,
     closed: AtomicBool,
     len: usize,
@@ -143,30 +143,58 @@ impl<T: Clone> Messages<T> {
     }
 
     /// ASSUMES THAT INDEX IS VALID
-    pub fn read(&self, index: usize, cond: RecvCondition) -> Result<Option<T>, MessageReadErr> {
-        //need to wait
-        loop {
-            match cond {
-                RecvCondition::Block => {
-                    if self.ring[index].check_writing.load(Ordering::SeqCst) {
-                        continue;
-                    }
-                }
-                RecvCondition::Try => {
-                    if self.ring[index].check_writing.load(Ordering::SeqCst) {
-                        return Err(MessageReadErr::BusyWriting);
-                    }
-                    break;
-                }
-            }
-        }
-        //let val = self.ring[index];
-        todo!()
+    pub fn read(&self, index: usize) -> Result<Option<T>, MessageReadErr> {
+        // This code probably makes no sense because we assume that
+        // for any seat, even if the writer is checking, like, it'll
+        // never write. because the seat still has some required reads.
+        // loop {
+        //     match cond {
+        //         RecvCondition::Block => {
+        //             if self.ring[index].check_writing.load(Ordering::SeqCst) {
+        //                 //we should probably park or something?
+        //                 continue;
+        //             }
+        //         }
+        //         RecvCondition::Try => {
+        //             if self.ring[index].check_writing.load(Ordering::SeqCst) {
+        //                 return Err(MessageReadErr::BusyWriting);
+        //             }
+        //             break;
+        //         }
+        //     }
+        // }
+
+        //todo
+
+        // Thoughts:
+        // Well, if check_writing is false, it could become true at any point.
+        //
+        // So now I'm like, okay we might need to use a RwLock.
+        //
+        // But then there's the fact that the writer will NEVER write
+        // if the seat is empty of possible reads.
+        // So hmmm.
+
+        let state = unsafe {
+            &mut *self.ring[index].state.0.get()
+            //todo
+        };
+
+        let res = self.ring[index].num_reads.fetch_sub(1, Ordering::SeqCst);
+        // this could be BAD for it
+        let val = if res == 0 {
+            state.val.take()
+        } else {
+            state.val.clone()
+        };
+
+        Ok(val)
     }
 }
 
 pub(crate) enum MessageReadErr {
     BusyWriting,
+    InvalidReader,
 }
 
 struct Seat<T> {
