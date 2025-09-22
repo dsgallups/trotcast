@@ -14,3 +14,9 @@ pub enum SendError<T> {
     Disconnected(T),
     Full(T),
 }
+
+pub enum InnerRecvError {
+    Disconnected,
+    Empty,
+    Invalid,
+}

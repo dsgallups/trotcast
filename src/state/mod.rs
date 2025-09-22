@@ -1,30 +1,43 @@
+mod inner;
 mod message;
 mod option;
 
-use std::sync::atomic::AtomicUsize;
+use std::{
+    collections::HashMap,
+    sync::{RwLock, atomic::AtomicUsize},
+};
 
-use crate::{prelude::*, state::message::Messages};
+use crate::{
+    prelude::*,
+    state::{inner::StateInner, message::Messages},
+};
 
 /// TODO: we will need to
 /// map dropped receivers to indices.
 pub struct State<T> {
-    state: Messages<T>,
-    num_readers: AtomicUsize,
+    messages: Messages<T>,
+    inner: StateInner,
     //positions: ReceiverPositions,
     next_receiver_id: AtomicUsize,
 }
 
-impl<T> State<T> {
+impl<T: Clone> State<T> {
     pub(crate) fn new(mut len: usize) -> Self {
         // needs one padding element
         len += 1;
         Self {
-            state: Messages::new(len),
-            num_readers: AtomicUsize::new(0),
+            messages: Messages::new(len),
+            inner: StateInner::default(),
             next_receiver_id: AtomicUsize::new(0),
         }
     }
     pub(crate) fn send(&self, value: T) -> Result<(), SendError<T>> {
-        self.state.send(value, &self.num_readers)
+        self.messages.send(value, &self.inner)
+    }
+    pub(crate) fn read_next(&self, id: usize) -> Result<T, InnerRecvError> {
+        let tail = self.inner.get_tail(id)?;
+        let msg = self.messages.read(tail)?.ok_or(InnerRecvError::Empty)?;
+        self.inner.increment_tail(id)?;
+        Ok(msg)
     }
 }

@@ -12,24 +12,14 @@ impl<T> Sender<T> {
 
 impl<T: Clone> Clone for Sender<T> {
     fn clone(&self) -> Self {
-        todo!()
+        Self {
+            shared: Arc::clone(&self.shared),
+        }
     }
 }
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) -> Result<(), SendError<T>> {
-        self.shared.send(value);
-
-        // {
-        //     let recv = self.shared.receiver_positions.read().unwrap();
-        //     if recv.is_empty() {
-        //         return Err(SendError::Disconnected(value));
-        //     }
-        // }
-
-        //TODO: don't unwrap
-        //let mut state = self.shared.state.lock().unwrap();
-
-        todo!()
+        self.shared.send(value)
     }
 }

@@ -6,12 +6,15 @@ use std::{
     sync::atomic::{self, AtomicBool, AtomicPtr, AtomicUsize, Ordering},
 };
 
-use crate::{error::SendError, state::option::AtomicOption};
+use crate::{
+    error::{InnerRecvError, SendError},
+    state::inner::StateInner,
+};
 
 pub(super) struct Messages<T> {
     /// a ring buffer.
     ring: Vec<Seat<T>>,
-    tail: AtomicUsize,
+    writer_tail: AtomicUsize,
     closed: AtomicBool,
     len: usize,
 }
@@ -22,19 +25,19 @@ enum TailAction {
     ReadersAhead,
 }
 
-impl<T> Messages<T> {
+impl<T: Clone> Messages<T> {
     pub fn new(len: usize) -> Self {
         Self {
             ring: (0..len).map(|_| Seat::default()).collect(),
-            tail: AtomicUsize::new(0),
+            writer_tail: AtomicUsize::new(0),
             closed: AtomicBool::new(false),
             //todo: wondering why jon does this
             len,
         }
     }
-    pub fn send(&self, value: T, num_readers: &AtomicUsize) -> Result<(), SendError<T>> {
+    pub fn send(&self, value: T, inner: &StateInner) -> Result<(), SendError<T>> {
         // this is my value
-        let tail = self.tail.load(Ordering::SeqCst);
+        let tail = self.writer_tail.load(Ordering::SeqCst);
 
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
@@ -71,8 +74,10 @@ impl<T> Messages<T> {
         //find a free space
         let mut i = 0;
         // update the t
-        let mut update_tail = TailAction::DontUpdate;
+        //let mut update_tail = TailAction::DontUpdate;
         // we will loop through every place in the ring to find a free spot.
+        //
+        // right now, we're going to naively loop.
         let my_pos = loop {
             if i == self.len {
                 let prev_pos = if i == 0 { 0 } else { (tail + i) % self.len };
@@ -88,40 +93,55 @@ impl<T> Messages<T> {
                 .is_err()
             {
                 i += 1;
-                if update_tail == TailAction::DontUpdate {
-                    update_tail = TailAction::Update;
-                }
+
                 continue;
             };
 
             // the number of readers may be less if a reader was dropped
-            let required_reads = unsafe { (&*self.ring[try_pos].state.get()).required_reads }
-                .min(num_readers.load(Ordering::Relaxed));
+            // so ill need to fix this bug.
+            // TODO
+            //
+
+            let required_reads = unsafe { (&*self.ring[try_pos].state.get()).required_reads };
+            //.min(inner.load(Ordering::Relaxed));
+
             // check if there are still readers here!
+            //
+            // if there are, well, it's full. sorry!
             if required_reads.saturating_sub(self.ring[try_pos].num_reads.load(Ordering::SeqCst))
                 != 0
             {
-                i += 1;
-                update_tail = TailAction::ReadersAhead;
-                continue;
+                // release the check_write.
+                self.ring[try_pos]
+                    .check_writing
+                    .store(false, Ordering::SeqCst);
+                return Err(SendError::Full(value));
             }
 
             break try_pos;
         };
 
-        // i think? horsing around
-        if update_tail == TailAction::Update {
-            self.tail.fetch_add(i, Ordering::SeqCst);
-        }
+        // bad idea for now
+        // // i think? horsing around.
+        // //
+        // // The idea is that if all previous values are being awaited on, then we should increment the tail, because they
+        // // will be set shortly.
+        // if update_tail == TailAction::Update {
+        //     self.writer_tail.fetch_add(i, Ordering::SeqCst);
+        // }
         // This is free to write!
         self.ring[my_pos].num_reads.store(0, Ordering::Release);
         let state = unsafe { &mut *self.ring[my_pos].state.get() };
-        state.required_reads = num_readers.load(Ordering::Acquire);
+        state.required_reads = inner.num_readers();
         state.val = Some(value);
         self.ring[my_pos]
             .check_writing
             .store(false, Ordering::SeqCst);
         Ok(())
+    }
+
+    pub fn read(&self, index: usize) -> Result<Option<T>, InnerRecvError> {
+        todo!()
     }
 }
 
@@ -153,6 +173,8 @@ impl<T> fmt::Debug for MutSeatState<T> {
         f.debug_tuple("MutSeatState").field(&self.0).finish()
     }
 }
+unsafe impl<T> Send for MutSeatState<T> {}
+unsafe impl<T> Sync for MutSeatState<T> {}
 impl<T> Deref for MutSeatState<T> {
     type Target = UnsafeCell<SeatState<T>>;
     fn deref(&self) -> &Self::Target {
