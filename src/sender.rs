@@ -2,10 +2,10 @@ use crate::prelude::*;
 use std::sync::Arc;
 
 pub struct Sender<T> {
-    shared: Arc<Shared<T>>,
+    shared: Arc<State<T>>,
 }
 impl<T> Sender<T> {
-    pub(crate) fn new(shared: Arc<Shared<T>>) -> Self {
+    pub(crate) fn new(shared: Arc<State<T>>) -> Self {
         Self { shared }
     }
 }
@@ -18,6 +18,8 @@ impl<T: Clone> Clone for Sender<T> {
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) -> Result<(), SendError<T>> {
+        self.shared.send(value);
+
         // {
         //     let recv = self.shared.receiver_positions.read().unwrap();
         //     if recv.is_empty() {

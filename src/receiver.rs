@@ -2,11 +2,11 @@ use crate::prelude::*;
 use std::sync::Arc;
 
 pub struct Receiver<T> {
-    shared: Arc<Shared<T>>,
+    shared: Arc<State<T>>,
     id: usize,
 }
 impl<T> Receiver<T> {
-    pub(crate) fn new(shared: Arc<Shared<T>>) -> Self {
+    pub(crate) fn new(shared: Arc<State<T>>) -> Self {
         Self { shared, id: 0 }
     }
 }
