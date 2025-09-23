@@ -11,7 +11,9 @@ pub(super) struct Messages<T> {
     /// a ring buffer.
     ring: Vec<Seat<T>>,
     /// in theory, this is used to point where the tail will be.
-    writer_tail: AtomicUsize,
+    tail: AtomicUsize,
+    /// This keeps track of number of values to add to the writer_tail
+    /// once the writer to writer_tail + 1 is complete
     closed: AtomicBool,
     len: usize,
 }
@@ -26,16 +28,13 @@ impl<T: Clone> Messages<T> {
     pub fn new(len: usize) -> Self {
         Self {
             ring: (0..len).map(|_| Seat::default()).collect(),
-            writer_tail: AtomicUsize::new(0),
+            tail: AtomicUsize::new(0),
             closed: AtomicBool::new(false),
             //todo: wondering why jon does this
             len,
         }
     }
     pub fn send(&self, value: T, num_readers: &AtomicUsize) -> Result<(), SendError<T>> {
-        // this is my value
-        let tail = self.writer_tail.load(Ordering::SeqCst);
-
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
         // empty space between the head and the tail. This is necessary so that readers can
@@ -66,75 +65,43 @@ impl<T: Clone> Messages<T> {
         // 2. send an error.
         //
         // I'm going with #2 for now
-        // lock on somewhere in the buffer
-
-        //find a free space
-        let mut i = 0;
-        // update the t
-        //let mut update_tail = TailAction::DontUpdate;
-        // we will loop through every place in the ring to find a free spot.
         //
-        // right now, we're going to naively loop.
-        let my_pos = loop {
-            if i == self.len {
-                let prev_pos = ring_id(i.saturating_sub(1), self.len);
-                self.ring[prev_pos]
-                    .check_writing
-                    .store(false, Ordering::SeqCst);
-                return Err(SendError::Full(value));
-            }
 
-            let try_pos = ring_id(tail + i, self.len);
+        // Note: I tried having writers write to values later in the tail.
+        // But this didn't work because you need a better sync implementation.
+        let mut i = 0;
+        let seat = loop {
+            let tail = self.tail.load(Ordering::SeqCst);
+            let try_pos = ring_id(tail, self.len);
             if self.ring[try_pos]
                 .check_writing
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                 .is_err()
             {
                 i += 1;
-
+                if i > 100 {
+                    panic!("seems like ill loop forever. what happened?");
+                }
+                //yeah. SPIN LOCK.
                 continue;
             };
-
-            // the number of readers may be less if a reader was dropped
-            // so ill need to fix this bug.
-            // TODO
-            //
-
-            let required_reads = unsafe { (&*self.ring[try_pos].state.get()).required_reads };
-            //.min(inner.load(Ordering::Relaxed));
-
-            // check if there are still readers here!
-            //
-            // if there are, well, it's full. sorry!
-            if required_reads.saturating_sub(self.ring[try_pos].num_reads.load(Ordering::SeqCst))
-                != 0
-            {
-                // release the check_write.
-                self.ring[try_pos]
-                    .check_writing
-                    .store(false, Ordering::SeqCst);
-                return Err(SendError::Full(value));
-            }
-
             break try_pos;
         };
 
-        // bad idea for now
-        // // i think? horsing around.
-        // //
-        // // The idea is that if all previous values are being awaited on, then we should increment the tail, because they
-        // // will be set shortly.
-        // if update_tail == TailAction::Update {
-        //     self.writer_tail.fetch_add(i, Ordering::SeqCst);
-        // }
+        let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
+
+        if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
+            // release the check_write.
+            self.ring[seat].check_writing.store(false, Ordering::SeqCst);
+            return Err(SendError::Full(value));
+        }
+
         // This is free to write!
-        self.ring[my_pos].num_reads.store(0, Ordering::Release);
-        let state = unsafe { &mut *self.ring[my_pos].state.get() };
+        self.ring[seat].num_reads.store(0, Ordering::Release);
+        let state = unsafe { &mut *self.ring[seat].state.get() };
         state.required_reads = num_readers.load(Ordering::SeqCst);
         state.val = Some(value);
-        self.ring[my_pos]
-            .check_writing
-            .store(false, Ordering::SeqCst);
+        self.ring[seat].check_writing.store(false, Ordering::SeqCst);
         Ok(())
     }
 
@@ -234,3 +201,83 @@ struct SeatState<T> {
     required_reads: usize,
     val: Option<T>,
 }
+/*
+
+// //find a free space
+      // //let mut i = 0;
+      // // update the t
+      // //let mut update_tail = TailAction::DontUpdate;
+      // // we will loop through every place in the ring to find a free spot.
+      // //
+      // // right now, we're going to naively loop.
+      // let my_pos = loop {
+      //     if i == self.len {
+      //         let prev_pos = ring_id(i.saturating_sub(1), self.len);
+      //         self.ring[prev_pos]
+      //             .check_writing
+      //             .store(false, Ordering::SeqCst);
+      //         return Err(SendError::Full(value));
+      //     }
+
+      //     let try_pos = ring_id(tail + i, self.len);
+      //     if self.ring[try_pos]
+      //         .check_writing
+      //         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+      //         .is_err()
+      //     {
+      //         i += 1;
+
+      //         continue;
+      //     };
+
+      //     // the number of readers may be less if a reader was dropped
+      //     // so ill need to fix this bug.
+      //     // TODO
+      //     //
+
+      //     let required_reads = unsafe { (&*self.ring[try_pos].state.get()).required_reads };
+      //     //.min(inner.load(Ordering::Relaxed));
+
+      //     // check if there are still readers here!
+      //     //
+      //     // if there are, well, it's full. sorry!
+      //     if required_reads.saturating_sub(self.ring[try_pos].num_reads.load(Ordering::SeqCst))
+      //         != 0
+      //     {
+      //         // release the check_write.
+      //         self.ring[try_pos]
+      //             .check_writing
+      //             .store(false, Ordering::SeqCst);
+      //         return Err(SendError::Full(value));
+      //     }
+
+      //     break try_pos;
+      // };
+
+      // // Thoughts
+      // //
+      // // If I am ahead of some writer and I add 1
+      // // but the writer beforehand reaches this and grabs 0
+      // //
+      // // then the tail is
+      // // tail + 1, add_to_tail is 1
+      // //
+      // // the next writer will overwrite add_to_tail. RIP.
+      // //
+      // //
+      // if i == 1 {
+      //     //self.tail.fetch_add(self, order)
+      //     //self.
+      // } else if i > 1 {
+      //     self.add_to_tail.fetch_add(1, Ordering::Relaxed);
+      // }
+      //
+      // bad idea for now
+      // // i think? horsing around.
+      // //
+      // // The idea is that if all previous values are being awaited on, then we should increment the tail, because they
+      // // will be set shortly.
+      // if update_tail == TailAction::Update {
+      //     self.writer_tail.fetch_add(i, Ordering::SeqCst);
+      // }
+ */

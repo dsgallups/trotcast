@@ -4,12 +4,14 @@ use std::sync::Arc;
 pub struct Receiver<T> {
     shared: Arc<State<T>>,
     closed: bool,
+    pos: usize,
 }
 impl<T> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
         Self {
             shared,
             closed: false,
+            pos: 0,
         }
     }
 }
@@ -19,6 +21,7 @@ impl<T: Clone> Clone for Receiver<T> {
         Self {
             shared: Arc::clone(&self.shared),
             closed: self.closed,
+            pos: self.shared.tail,
         }
     }
 }
@@ -43,8 +46,8 @@ impl<T: Clone> Receiver<T> {
         if self.closed {
             return Err(InnerRecvError::Disconnected);
         }
-        let pos = self.shared.read_next(self.id);
-
+        let pos = self.shared.read(self.pos);
+        //todo: increment pos if Some(T)
         todo!()
     }
 }
