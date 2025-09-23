@@ -44,8 +44,7 @@ fn main() {
 
     let (tx_vals, receiver_vals) = crossbeam_channel::unbounded();
 
-    // both receiver_1 and receiver_2 will recieve the same messages
-
+    std::thread::sleep(Duration::from_secs(3));
     thread::spawn({
         let mut rx_1 = rx.clone();
         let tx = tx_vals.clone();
@@ -116,6 +115,7 @@ fn main() {
                 for (statement, c1_head, c2_head, count) in statements {
                     past_strs.push_str(&format!("State at {count}:\n{statement}\n\nthread1 head: {c1_head}\nthread2 head: {c2_head}\n\n======="));
                 }
+                //println!("unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}");
 
                 panic!(
                     "unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}\n{final_state}\n\n{past_strs}"
