@@ -26,9 +26,6 @@ impl<T: Clone> Receiver<T> {
         self.recv_inner(RecvCondition::Try).map_err(|e| match e {
             InnerRecvError::Disconnected => TryRecvError::Disconnected,
             InnerRecvError::Empty => TryRecvError::Empty,
-            InnerRecvError::Invalid => {
-                panic!("invalidness");
-            }
         })
     }
     pub fn recv(&mut self) -> Result<T, RecvError> {
@@ -86,5 +83,6 @@ impl<T: Clone> Clone for Receiver<T> {
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         self.shared.num_readers.fetch_sub(1, Ordering::Release);
+        //self.shared.ring[self.head].state
     }
 }

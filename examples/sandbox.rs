@@ -129,6 +129,31 @@ fn main() {
     let mut i = 2;
     loop {
         std::thread::sleep(Duration::from_secs(2));
+
+        if i % 2 == 1 {
+            thread::spawn({
+                let mut my_rx = tx.spawn_rx();
+                let tx = tx_vals.clone();
+                move || {
+                    let mut count = 0;
+                    loop {
+                        match my_rx.recv() {
+                            Ok(msg) => {
+                                info!("RX{i}({count}) msg: {msg}");
+                                //_ = tx.send((2, msg, count, my_rx.head));
+                                count += 1;
+                                if count > 30 {
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                info!("Error: {e:?}");
+                            }
+                        }
+                    }
+                }
+            });
+        }
         thread::spawn({
             let mut my_rx = tx.spawn_rx();
             let tx = tx_vals.clone();

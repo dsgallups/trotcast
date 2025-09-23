@@ -20,8 +20,6 @@ pub(crate) struct Seat<T> {
 
 impl<T> Default for Seat<T> {
     fn default() -> Self {
-        // this is an empty seat. null pointer.
-        // Nothing here.
         Self {
             num_reads: AtomicUsize::new(0),
             check_writing: AtomicBool::new(false),

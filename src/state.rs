@@ -2,8 +2,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::prelude::*;
 
-/// TODO: we will need to
-/// map dropped receivers to indices.
 pub struct State<T> {
     /// a ring buffer.
     pub(crate) ring: Vec<Seat<T>>,
@@ -100,14 +98,14 @@ impl<T: Clone> State<T> {
             break tail;
         };
 
-        // this code patches a bug where a reader might receive new data before it has read the previous. not sure what's up.
-        let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
+        // // this code patches a bug where a reader might receive new data before it has read the previous. not sure what's up.
+        // let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
 
-        if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
-            // release the check_write.
-            self.ring[seat].check_writing.store(false, Ordering::SeqCst);
-            return Err(SendError::Full(value));
-        }
+        // if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
+        //     // release the check_write.
+        //     self.ring[seat].check_writing.store(false, Ordering::SeqCst);
+        //     return Err(SendError::Full(value));
+        // }
 
         // This is free to write!
         self.ring[seat].num_reads.store(0, Ordering::Release);
@@ -122,12 +120,4 @@ impl<T: Clone> State<T> {
 
         Ok(())
     }
-
-    // pub(crate) fn add_reader(&self) {
-    //     self.num_readers.fetch_add(1, Ordering::Release);
-    // }
-
-    // pub(crate) fn add_writer(&self) {
-    //     self.num_writers.fetch_add(1, Ordering::Release);
-    // }
 }
