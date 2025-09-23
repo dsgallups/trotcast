@@ -1,7 +1,7 @@
 #![allow(unused)]
 use std::{collections::VecDeque, thread, time::Duration};
 
-use tracing::{Level, info};
+use tracing::{Level, info, warn};
 use trotcast::prelude::*;
 
 fn main() {
@@ -130,30 +130,31 @@ fn main() {
     loop {
         std::thread::sleep(Duration::from_secs(2));
 
-        if i % 2 == 1 {
-            thread::spawn({
-                let mut my_rx = tx.spawn_rx();
-                let tx = tx_vals.clone();
-                move || {
-                    let mut count = 0;
-                    loop {
-                        match my_rx.recv() {
-                            Ok(msg) => {
-                                info!("RX{i}({count}) msg: {msg}");
-                                //_ = tx.send((2, msg, count, my_rx.head));
-                                count += 1;
-                                if count > 30 {
-                                    break;
-                                }
-                            }
-                            Err(e) => {
-                                info!("Error: {e:?}");
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        // if i % 2 == 1 {
+        //     thread::spawn({
+        //         let mut my_rx = tx.spawn_rx();
+        //         let tx = tx_vals.clone();
+        //         move || {
+        //             let mut count = 0;
+        //             loop {
+        //                 match my_rx.recv() {
+        //                     Ok(msg) => {
+        //                         info!("RX{i}({count}) msg: {msg}");
+        //                         //_ = tx.send((2, msg, count, my_rx.head));
+        //                         count += 1;
+        //                         if count > 30 {
+        //                             warn!("Dropped RX{i}");
+        //                             break;
+        //                         }
+        //                     }
+        //                     Err(e) => {
+        //                         info!("Error: {e:?}");
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     });
+        // }
         thread::spawn({
             let mut my_rx = tx.spawn_rx();
             let tx = tx_vals.clone();
@@ -165,9 +166,10 @@ fn main() {
                             info!("RX{i}({count}) msg: {msg}");
                             //_ = tx.send((2, msg, count, my_rx.head));
                             count += 1;
-                            if count > 30 {
-                                break;
-                            }
+                            // if count > 30 {
+                            //     warn!("Dropped RX{i}");
+                            //     break;
+                            // }
                         }
                         Err(e) => {
                             info!("Error: {e:?}");

@@ -83,6 +83,20 @@ impl<T: Clone> Clone for Receiver<T> {
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         self.shared.num_readers.fetch_sub(1, Ordering::Release);
-        //self.shared.ring[self.head].state
+        // #[cfg(feature = "debug")]
+        // tracing::info!("===\nDropping at {}\n", self.head);
+        // let mut cur = self.head;
+        // let tail = self.shared.tail.load(Ordering::SeqCst);
+        // while cur != tail {
+        //     #[cfg(feature = "debug")]
+        //     tracing::info!("Drop Proc: \nAdding 1 to {cur}");
+        //     self.shared.ring[cur]
+        //         .num_reads
+        //         .fetch_add(1, Ordering::Release);
+        //     cur = (cur + 1) % self.shared.len;
+        // }
+
+        // #[cfg(feature = "debug")]
+        // tracing::info!("===\nDropped!\n===\n");
     }
 }
