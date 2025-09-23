@@ -8,19 +8,32 @@ fn main() {
     let spawner = rx.into_spawner();
 
     // sender 1 and 2 can send messages by cloning tx.
+    // let sender_1 = thread::spawn({
+    //     let s1 = tx.clone();
+    //     move || {
+    //         let mut x = 0.;
+    //         for _ in 0..2000 {
+    //             loop {
+    //                 if s1.send(x).is_err() {
+    //                     continue;
+    //                 } else {
+    //                     break;
+    //                 }
+    //             }
+    //             x += 1.;
+    //         }
+    //     }
+    // });
     let sender_1 = thread::spawn({
         let s1 = tx.clone();
         move || {
             let mut x = 0.;
-            for _ in 0..2000 {
-                loop {
-                    if s1.send(x).is_err() {
-                        continue;
-                    } else {
-                        break;
-                    }
+            loop {
+                if s1.send(x).is_err() {
+                    continue;
+                } else {
+                    x += 1.;
                 }
-                x += 1.;
             }
         }
     });
@@ -110,9 +123,20 @@ fn main() {
     // I think it's possible that the receiver's head is sitting behind the tail which is no good.
 
     let debug = tx.debugger();
+
+    let mut rx_1_head = None;
+    let mut rx_2_head = None;
     loop {
         std::thread::sleep(Duration::from_secs(1));
         println!("{}", debug.print_state());
+        while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
+            if id == 1 {
+                rx_1_head = Some(head);
+            } else {
+                rx_2_head = Some(head);
+            }
+        }
+        println!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
     }
 
     // let mut recv1 = Vec::new();
