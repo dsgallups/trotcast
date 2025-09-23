@@ -139,6 +139,9 @@ fn main() {
                             info!("RX{i}({count}) msg: {msg}");
                             //_ = tx.send((2, msg, count, my_rx.head));
                             count += 1;
+                            if count > 30 {
+                                break;
+                            }
                         }
                         Err(e) => {
                             info!("Error: {e:?}");
