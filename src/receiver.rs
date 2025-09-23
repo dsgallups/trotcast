@@ -2,13 +2,14 @@ use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
 pub struct Receiver<T> {
-    id: usize,
-    shared: Arc<State<T>>,
-    closed: bool,
+    pub(crate) id: usize,
+    pub(crate) shared: Arc<State<T>>,
+    pub(crate) closed: bool,
     pub head: usize,
 }
-impl<T> Receiver<T> {
+impl<T: Clone> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
+        shared.add_reader();
         Self {
             id: 0,
             shared,
@@ -16,7 +17,13 @@ impl<T> Receiver<T> {
             head: 0,
         }
     }
+    pub fn into_spawner(self) -> Spawner<T> {
+        Spawner {
+            shared: Arc::clone(&self.shared),
+        }
+    }
 }
+
 impl<T: Clone> Clone for Receiver<T> {
     fn clone(&self) -> Self {
         self.shared.add_reader();
@@ -24,7 +31,7 @@ impl<T: Clone> Clone for Receiver<T> {
             id: self.id + 1,
             shared: Arc::clone(&self.shared),
             closed: self.closed,
-            head: self.head,
+            head: self.shared.tail.load(Ordering::Relaxed),
         }
     }
 }
@@ -84,4 +91,10 @@ impl<T: Clone> Receiver<T> {
 pub(crate) enum RecvCondition {
     Try,
     Block,
+}
+
+impl<T> Drop for Receiver<T> {
+    fn drop(&mut self) {
+        self.shared.num_readers.fetch_sub(1, Ordering::Release);
+    }
 }

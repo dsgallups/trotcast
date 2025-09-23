@@ -14,7 +14,7 @@ pub struct State<T> {
     pub(crate) num_writers: AtomicUsize,
     pub(crate) len: usize,
     /// keeps track of readers
-    num_readers: AtomicUsize,
+    pub(crate) num_readers: AtomicUsize,
 }
 
 impl<T: Clone> State<T> {

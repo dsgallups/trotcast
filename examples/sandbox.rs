@@ -5,6 +5,7 @@ use trotcast::prelude::*;
 
 fn main() {
     let (tx, rx) = channel::<f32>(5);
+    let spawner = rx.into_spawner();
 
     // sender 1 and 2 can send messages by cloning tx.
     let sender_1 = thread::spawn({
@@ -41,12 +42,28 @@ fn main() {
             }
         }
     });
+    /*
+
+    let sender_1 = thread::spawn({
+        let s1 = tx.clone();
+        move || {
+            let mut x = 0.;
+            loop {
+                if s1.send(x).is_err() {
+                    continue;
+                } else {
+                    x += 1.;
+                }
+            }
+        }
+    });
+    */
 
     let (tx_vals, receiver_vals) = crossbeam_channel::unbounded();
 
     std::thread::sleep(Duration::from_secs(1));
     thread::spawn({
-        let mut rx_1 = rx.clone();
+        let mut rx_1 = spawner.spawn_rx();
         let tx = tx_vals.clone();
         move || {
             let mut count = 0;
@@ -67,8 +84,10 @@ fn main() {
         }
     });
 
+    std::thread::sleep(Duration::from_secs(2));
+
     thread::spawn({
-        let mut rx_2 = rx;
+        let mut rx_2 = spawner.spawn_rx();
         let tx = tx_vals.clone();
         move || {
             let mut count = 0;
@@ -86,6 +105,9 @@ fn main() {
             }
         }
     });
+    // Thoughts:
+    //
+    // I think it's possible that the receiver's head is sitting behind the tail which is no good.
 
     let debug = tx.debugger();
     loop {

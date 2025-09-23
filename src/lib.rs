@@ -10,6 +10,7 @@ pub mod error;
 pub mod receiver;
 pub mod seat;
 pub mod sender;
+pub mod spawner;
 pub mod state;
 
 pub mod prelude {
@@ -19,5 +20,6 @@ pub mod prelude {
     pub use crate::receiver::*;
     pub(crate) use crate::seat::*;
     pub use crate::sender::*;
+    pub use crate::spawner::*;
     pub use crate::state::*;
 }
