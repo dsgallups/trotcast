@@ -5,7 +5,7 @@ use tracing::{Level, info, warn};
 use trotcast::prelude::*;
 
 fn main() {
-    let (tx, rx) = channel::<f32>(5);
+    let (tx, rx) = channel::<f32>(1);
 
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
