@@ -88,14 +88,17 @@ impl<T: Clone> State<T> {
             return Err(SendError::Full(value));
         }
 
-        let tail = seat + 1 % self.len;
-        self.tail.store(tail, Ordering::Release);
         // This is free to write!
         self.ring[seat].num_reads.store(0, Ordering::Release);
         let state = unsafe { &mut *self.ring[seat].state.get() };
         state.required_reads = self.num_readers.load(Ordering::SeqCst);
         state.val = Some(value);
+
+        // set the tail last and then unlock check_writing
+        let tail = seat + 1 % self.len;
+        self.tail.store(tail, Ordering::Release);
         self.ring[seat].check_writing.store(false, Ordering::SeqCst);
+
         Ok(())
     }
 

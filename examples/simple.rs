@@ -59,6 +59,7 @@ fn main() {
     });
 
     let handles = [sender_1, sender_2, receiver_1, receiver_2];
+    //let handles = [sender_1, sender_2, receiver_1, receiver_2];
     loop {
         if handles.iter().all(|handle| handle.is_finished()) {
             break;

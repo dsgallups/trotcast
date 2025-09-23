@@ -35,12 +35,17 @@ impl<T> Default for Seat<T> {
 
 impl<T: Clone> Seat<T> {
     pub(crate) fn take(&self) -> T {
-        let read = self.num_reads.load(Ordering::Acquire);
+        let num_reads = self.num_reads.load(Ordering::Acquire);
 
         let state = unsafe { &*self.state.get() };
-        assert!(read < state.required_reads);
+        let required_reads = state.required_reads;
+        assert!(
+            num_reads < required_reads,
+            "num_reads: {num_reads}, req: {}",
+            required_reads
+        );
 
-        let v = if read + 1 == state.required_reads {
+        let v = if num_reads + 1 == state.required_reads {
             unsafe { &mut *self.state.get() }.val.take().unwrap()
         } else {
             state.val.clone().unwrap()
