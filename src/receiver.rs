@@ -1,23 +1,25 @@
 use crate::prelude::*;
-use std::{sync::Arc, time};
+use std::sync::Arc;
 
 pub struct Receiver<T> {
     shared: Arc<State<T>>,
-    id: usize,
     closed: bool,
 }
 impl<T> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
         Self {
             shared,
-            id: 0,
             closed: false,
         }
     }
 }
 impl<T: Clone> Clone for Receiver<T> {
     fn clone(&self) -> Self {
-        todo!()
+        self.shared.add_reader();
+        Self {
+            shared: Arc::clone(&self.shared),
+            closed: self.closed,
+        }
     }
 }
 

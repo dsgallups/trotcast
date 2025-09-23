@@ -5,11 +5,7 @@ use std::{
     sync::atomic::{self, AtomicBool, AtomicUsize, Ordering},
 };
 
-use crate::{
-    error::SendError,
-    prelude::RecvCondition,
-    state::{inner::StateInner, ring_id},
-};
+use crate::{error::SendError, state::ring_id};
 
 pub(super) struct Messages<T> {
     /// a ring buffer.
@@ -36,7 +32,7 @@ impl<T: Clone> Messages<T> {
             len,
         }
     }
-    pub fn send(&self, value: T, inner: &StateInner) -> Result<(), SendError<T>> {
+    pub fn send(&self, value: T, num_readers: &AtomicUsize) -> Result<(), SendError<T>> {
         // this is my value
         let tail = self.writer_tail.load(Ordering::SeqCst);
 
@@ -134,7 +130,7 @@ impl<T: Clone> Messages<T> {
         // This is free to write!
         self.ring[my_pos].num_reads.store(0, Ordering::Release);
         let state = unsafe { &mut *self.ring[my_pos].state.get() };
-        state.required_reads = inner.num_readers();
+        state.required_reads = num_readers.load(Ordering::SeqCst);
         state.val = Some(value);
         self.ring[my_pos]
             .check_writing

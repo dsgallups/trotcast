@@ -2,23 +2,23 @@ mod inner;
 mod message;
 mod option;
 
-use std::sync::atomic::AtomicUsize;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 use crate::{
     prelude::*,
-    state::{
-        inner::StateInner,
-        message::{MessageReadErr, Messages},
-    },
+    state::message::{MessageReadErr, Messages},
 };
 
 /// TODO: we will need to
 /// map dropped receivers to indices.
 pub struct State<T> {
     messages: Messages<T>,
-    inner: StateInner,
+    //inner: StateInner,
     //positions: ReceiverPositions,
-    next_receiver_id: AtomicUsize,
+    num_readers: AtomicUsize,
 }
 
 impl<T: Clone> State<T> {
@@ -27,18 +27,28 @@ impl<T: Clone> State<T> {
         len += 1;
         Self {
             messages: Messages::new(len),
-            inner: StateInner::default(),
-            next_receiver_id: AtomicUsize::new(0),
+            num_readers: AtomicUsize::new(0),
         }
     }
     pub(crate) fn send(&self, value: T) -> Result<(), SendError<T>> {
-        self.messages.send(value, &self.inner)
+        self.messages.send(value, &self.num_readers)
     }
+
+    pub(crate) fn add_reader(&self) {
+        self.num_readers.fetch_add(1, Ordering::SeqCst);
+    }
+
     pub(crate) fn read_next(&self, id: usize) -> Result<Option<T>, MessageReadErr> {
         let tail = self.inner.get_tail(id)?;
         let res = self.messages.read(tail)?;
         self.inner.increment_tail(id)?;
         Ok(res)
+    }
+    pub(crate) fn add_recv(self: &Arc<Self>) -> (usize, Arc<Self>) {
+        let id = self.next_receiver_id.fetch_add(1, Ordering::SeqCst);
+        let id = self.inner.add_reader(id);
+
+        (id, Arc::clone(self))
     }
 }
 
