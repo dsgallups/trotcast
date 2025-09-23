@@ -33,7 +33,6 @@ fn main() {
         move || {
             let mut x = 0.;
             loop {
-                std::thread::sleep(Duration::from_millis(3000));
                 if s1.send(x).is_err() {
                     continue;
                 } else {
@@ -47,8 +46,8 @@ fn main() {
         let s2 = tx.clone();
         move || {
             let mut x = 990.;
-            for _ in 0..100 {
-                std::thread::sleep(Duration::from_millis(400));
+            loop {
+                //std::thread::sleep(Duration::from_millis(400));
                 loop {
                     if s2.send(x).is_err() {
                         continue;
@@ -56,7 +55,7 @@ fn main() {
                         break;
                     }
                 }
-                x /= 3.;
+                x /= 2.;
             }
         }
     });
