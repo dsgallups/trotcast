@@ -10,3 +10,6 @@ readme = "README.md"
 edition = "2024"
 
 [dependencies]
+
+[dev-dependencies]
+crossbeam-channel = "0.5.15"

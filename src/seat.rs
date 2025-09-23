@@ -69,7 +69,9 @@ impl<T: Clone> Seat<T> {
 pub(crate) struct MutSeatState<T>(UnsafeCell<SeatState<T>>);
 impl<T> fmt::Debug for MutSeatState<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("MutSeatState").field(&self.0).finish()
+        f.debug_tuple("MutSeatState")
+            .field(&unsafe { &*self.0.get() }.required_reads)
+            .finish()
     }
 }
 unsafe impl<T> Send for MutSeatState<T> {}

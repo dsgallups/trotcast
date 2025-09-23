@@ -30,7 +30,7 @@ impl<T: Clone> State<T> {
             num_readers: AtomicUsize::new(0),
         }
     }
-    pub fn send(&self, id: usize, value: T) -> Result<(), SendError<T>> {
+    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
         // empty space between the head and the tail. This is necessary so that readers can
@@ -94,17 +94,15 @@ impl<T: Clone> State<T> {
             };
             break tail;
         };
-        // if id == 1 {
-        //     println!("id(1) locked {seat}");
-        // }
 
-        // let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
+        // this code patches a bug where a reader might receive new data before it has read the previous. not sure what's up.
+        let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
 
-        // if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
-        //     // release the check_write.
-        //     self.ring[seat].check_writing.store(false, Ordering::SeqCst);
-        //     return Err(SendError::Full(value));
-        // }
+        if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
+            // release the check_write.
+            self.ring[seat].check_writing.store(false, Ordering::SeqCst);
+            return Err(SendError::Full(value));
+        }
 
         // This is free to write!
         self.ring[seat].num_reads.store(0, Ordering::Release);

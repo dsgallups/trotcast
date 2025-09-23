@@ -28,6 +28,6 @@ impl<T: Clone> Clone for Sender<T> {
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) -> Result<(), SendError<T>> {
-        self.shared.send(self.id, value)
+        self.shared.send(value)
     }
 }
