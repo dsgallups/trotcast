@@ -2,12 +2,16 @@ use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
 pub struct Sender<T> {
+    id: usize,
     shared: Arc<State<T>>,
 }
 impl<T: Clone> Sender<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
-        shared.num_writers.fetch_add(1, Ordering::Release);
-        Self { shared }
+        let prev = shared.num_writers.fetch_add(1, Ordering::Release);
+        Self {
+            id: prev + 1,
+            shared,
+        }
     }
     #[cfg(feature = "debug")]
     pub fn debugger(&self) -> Debug<T> {
@@ -28,7 +32,7 @@ impl<T: Clone> Clone for Sender<T> {
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) -> Result<(), SendError<T>> {
-        self.shared.send(value)
+        self.shared.send(self.id, value)
     }
 }
 impl<T> Drop for Sender<T> {

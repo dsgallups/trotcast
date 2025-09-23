@@ -28,7 +28,7 @@ impl<T: Clone> State<T> {
             num_readers: AtomicUsize::new(0),
         }
     }
-    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
+    pub fn send(&self, id: usize, value: T) -> Result<(), SendError<T>> {
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
         // empty space between the head and the tail. This is necessary so that readers can
@@ -90,15 +90,24 @@ impl<T: Clone> State<T> {
             {
                 i += 1;
                 if i > 100 {
+                    //panic!("no");
                     return Err(SendError::Full(value));
                 }
                 //yeah. SPIN LOCK.
                 continue;
             };
+
+            //tracing::info!("sender {id} is at {tail}");
             break tail;
         };
 
         // this code patches a bug where a reader might receive new data before it has read the previous. not sure what's up.
+        //
+        // process:
+        // the thread takes a value at 1. num reads at 1 becomes 1.
+        // thread increments head to 0. tail is still 0. what happened
+        //
+        //
         //
         let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
 
@@ -109,14 +118,22 @@ impl<T: Clone> State<T> {
         }
 
         // This is free to write!
-        self.ring[seat].num_reads.store(0, Ordering::Release);
         let state = unsafe { &mut *self.ring[seat].state.get() };
-        state.required_reads = self.num_readers.load(Ordering::SeqCst);
         state.val = Some(value);
+
+        state.required_reads = self.num_readers.load(Ordering::SeqCst);
 
         // set the tail last and then unlock check_writing
         let tail = (seat + 1) % self.len;
-        self.tail.store(tail, Ordering::Release);
+        // the race condition is instantly after this is stored,
+        // a thread reads the seat.
+        // in another thread, before tail is stored, the value is 1 because the thread read.
+        // then, the other thread sets that value to zero. the reader sets their head up one.
+        // it's got all to do with `num_reads`.
+        // wait, head == tail.
+        // so that means tail is wrong. tail is pointing at something that was read.
+        self.ring[seat].num_reads.store(0, Ordering::SeqCst);
+        self.tail.store(tail, Ordering::SeqCst);
         self.ring[seat].check_writing.store(false, Ordering::SeqCst);
 
         Ok(())

@@ -5,6 +5,8 @@ use std::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
+use tracing::info;
+
 pub(crate) struct Seat<T> {
     // the number of reads.
     // Readers never need to check if writing, because
@@ -42,8 +44,8 @@ impl<T> fmt::Debug for Seat<T> {
 }
 
 impl<T: Clone> Seat<T> {
-    pub(crate) fn take(&self) -> T {
-        let num_reads = self.num_reads.load(Ordering::Acquire);
+    pub(crate) fn take(&self, val: usize) -> T {
+        let num_reads = self.num_reads.load(Ordering::SeqCst);
 
         let state = unsafe { &*self.state.get() };
         let required_reads = state.required_reads;
@@ -59,7 +61,8 @@ impl<T: Clone> Seat<T> {
             state.val.clone().unwrap()
         };
 
-        self.num_reads.fetch_add(1, Ordering::AcqRel);
+        // race condition: line state.rs:111
+        self.num_reads.fetch_add(1, Ordering::SeqCst);
         v
     }
 }

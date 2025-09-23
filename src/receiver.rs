@@ -63,7 +63,7 @@ impl<T: Clone> Receiver<T> {
         }
 
         let head = self.head;
-        let ret = self.shared.ring[head].take();
+        let ret = self.shared.ring[head].take(head);
 
         self.head = (head + 1) % self.shared.len;
         Ok(ret)
