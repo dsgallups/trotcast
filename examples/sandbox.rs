@@ -44,7 +44,7 @@ fn main() {
 
     let (tx_vals, receiver_vals) = crossbeam_channel::unbounded();
 
-    std::thread::sleep(Duration::from_secs(3));
+    std::thread::sleep(Duration::from_secs(1));
     thread::spawn({
         let mut rx_1 = rx.clone();
         let tx = tx_vals.clone();
@@ -68,7 +68,7 @@ fn main() {
     });
 
     thread::spawn({
-        let mut rx_2 = rx.clone();
+        let mut rx_2 = rx;
         let tx = tx_vals.clone();
         move || {
             let mut count = 0;
@@ -88,39 +88,44 @@ fn main() {
     });
 
     let debug = tx.debugger();
-    let mut recv1 = Vec::new();
-    let mut recv2 = Vec::new();
-    let mut statements = VecDeque::new();
-    let mut running_max = 0;
-    while let Ok((thread_no, val, count, head)) = receiver_vals.recv() {
-        if thread_no == 1 {
-            recv1.push((val, count, head));
-        } else {
-            recv2.push((val, count, head));
-        }
-        for ((val1, c1, c1_head), (val2, c2, c2_head)) in recv1.iter().zip(recv2.iter()) {
-            assert_eq!(c1, c2);
-            if *c1 > running_max {
-                running_max += 1;
-                statements.push_back((debug.print_state(), *c1_head, *c2_head, count));
-                if statements.len() > 8 {
-                    statements.pop_front();
-                }
-            }
-
-            if val1 != val2 {
-                let final_state = debug.print_state();
-
-                let mut past_strs = String::new();
-                for (statement, c1_head, c2_head, count) in statements {
-                    past_strs.push_str(&format!("State at {count}:\n{statement}\n\nthread1 head: {c1_head}\nthread2 head: {c2_head}\n\n======="));
-                }
-                //println!("unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}");
-
-                panic!(
-                    "unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}\n{final_state}\n\n{past_strs}"
-                );
-            }
-        }
+    loop {
+        std::thread::sleep(Duration::from_secs(1));
+        println!("{}", debug.print_state());
     }
+
+    // let mut recv1 = Vec::new();
+    // let mut recv2 = Vec::new();
+    // let mut statements = VecDeque::new();
+    // let mut running_max = 0;
+    // while let Ok((thread_no, val, count, head)) = receiver_vals.recv() {
+    //     if thread_no == 1 {
+    //         recv1.push((val, count, head));
+    //     } else {
+    //         recv2.push((val, count, head));
+    //     }
+    //     for ((val1, c1, c1_head), (val2, c2, c2_head)) in recv1.iter().zip(recv2.iter()) {
+    //         assert_eq!(c1, c2);
+    //         if *c1 > running_max {
+    //             running_max += 1;
+    //             statements.push_back((debug.print_state(), *c1_head, *c2_head, count));
+    //             if statements.len() > 8 {
+    //                 statements.pop_front();
+    //             }
+    //         }
+
+    //         if val1 != val2 {
+    //             let final_state = debug.print_state();
+
+    //             let mut past_strs = String::new();
+    //             for (statement, c1_head, c2_head, count) in statements {
+    //                 past_strs.push_str(&format!("State at {count}:\n{statement}\n\nthread1 head: {c1_head}\nthread2 head: {c2_head}\n\n======="));
+    //             }
+    //             //println!("unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}");
+
+    //             panic!(
+    //                 "unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}\n{final_state}\n\n{past_strs}"
+    //             );
+    //         }
+    //     }
+    // }
 }
