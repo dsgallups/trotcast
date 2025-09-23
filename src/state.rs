@@ -1,7 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use tracing::info;
-
 use crate::prelude::*;
 
 /// TODO: we will need to
@@ -32,7 +30,7 @@ impl<T: Clone> State<T> {
             num_readers: AtomicUsize::new(0),
         }
     }
-    pub fn send(&self, id: usize, value: T) -> Result<(), SendError<T>> {
+    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
         // empty space between the head and the tail. This is necessary so that readers can
@@ -86,11 +84,6 @@ impl<T: Clone> State<T> {
             {
                 continue;
             }
-            // this can happen if we're filling up the buffer way too quickly
-            if self.ring[fence].check_writing.load(Ordering::SeqCst) {
-                info!("uh oh fence: {fence}, tail: {tail}, id: {id}");
-                continue;
-            }
 
             if self.ring[tail]
                 .check_writing
@@ -115,9 +108,6 @@ impl<T: Clone> State<T> {
             self.ring[seat].check_writing.store(false, Ordering::SeqCst);
             return Err(SendError::Full(value));
         }
-        if id == 2 {
-            info!("{id} grabbed");
-        }
 
         // This is free to write!
         self.ring[seat].num_reads.store(0, Ordering::Release);
@@ -141,7 +131,3 @@ impl<T: Clone> State<T> {
         self.num_writers.fetch_add(1, Ordering::Release);
     }
 }
-
-// pub(crate) fn ring_id(val: usize, len: usize) -> usize {
-//     (val + 1) % len
-// }
