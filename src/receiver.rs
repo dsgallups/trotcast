@@ -1,17 +1,17 @@
 use crate::prelude::*;
-use std::sync::Arc;
+use std::sync::{Arc, atomic::Ordering};
 
 pub struct Receiver<T> {
     shared: Arc<State<T>>,
     closed: bool,
-    pos: usize,
+    head: usize,
 }
 impl<T> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
         Self {
             shared,
             closed: false,
-            pos: 0,
+            head: 0,
         }
     }
 }
@@ -21,7 +21,7 @@ impl<T: Clone> Clone for Receiver<T> {
         Self {
             shared: Arc::clone(&self.shared),
             closed: self.closed,
-            pos: self.pos,
+            head: self.head,
         }
     }
 }
@@ -46,21 +46,35 @@ impl<T: Clone> Receiver<T> {
         if self.closed {
             return Err(InnerRecvError::Disconnected);
         }
+        let mut was_closed = false;
         loop {
-            match self.shared.read(self.pos) {
-                Some(value) => {
-                    self.pos += 1;
-                    return Ok(value);
+            let tail = self.shared.tail.load(Ordering::Acquire);
+            if tail != self.head {
+                break;
+            }
+            if self.shared.num_writers.load(Ordering::Relaxed) == 0 {
+                // from bus docs:
+                //
+                // we need to check again that there's nothing in the bus, otherwise we might have
+                // missed a write between when we did the read of .tail above and when we read
+                // .closed here
+                if !was_closed {
+                    was_closed = true;
+                    continue;
                 }
-                None => {
-                    if cond == RecvCondition::Block {
-                        continue;
-                    } else {
-                        return Err(InnerRecvError::Empty);
-                    }
-                }
+                self.closed = true;
+                return Err(InnerRecvError::Disconnected);
+            }
+            if cond == RecvCondition::Try {
+                return Err(InnerRecvError::Empty);
             }
         }
+
+        let head = self.head;
+        let ret = self.shared.ring[head].take();
+
+        self.head = (head + 1) % self.shared.len;
+        Ok(ret)
     }
 }
 #[derive(PartialEq, Eq)]

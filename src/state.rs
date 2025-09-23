@@ -1,9 +1,4 @@
-use core::fmt;
-use std::{
-    cell::UnsafeCell,
-    ops::Deref,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::prelude::*;
 
@@ -11,13 +6,13 @@ use crate::prelude::*;
 /// map dropped receivers to indices.
 pub struct State<T> {
     /// a ring buffer.
-    ring: Vec<Seat<T>>,
+    pub(crate) ring: Vec<Seat<T>>,
     /// in theory, this is used to point where the tail will be.
-    tail: AtomicUsize,
+    pub(crate) tail: AtomicUsize,
     /// This keeps track of number of values to add to the writer_tail
     /// once the writer to writer_tail + 1 is complete
-    num_writers: AtomicUsize,
-    len: usize,
+    pub(crate) num_writers: AtomicUsize,
+    pub(crate) len: usize,
     /// keeps track of readers
     num_readers: AtomicUsize,
 }
@@ -70,8 +65,7 @@ impl<T: Clone> State<T> {
         let mut i = 0;
         let seat = loop {
             let tail = self.tail.load(Ordering::SeqCst);
-            let try_pos = ring_id(tail, self.len);
-            if self.ring[try_pos]
+            if self.ring[tail]
                 .check_writing
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
                 .is_err()
@@ -83,7 +77,7 @@ impl<T: Clone> State<T> {
                 //yeah. SPIN LOCK.
                 continue;
             };
-            break try_pos;
+            break tail;
         };
 
         let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
@@ -94,7 +88,8 @@ impl<T: Clone> State<T> {
             return Err(SendError::Full(value));
         }
 
-        self.tail.fetch_add(1, Ordering::Release);
+        let tail = seat + 1 % self.len;
+        self.tail.store(tail, Ordering::Release);
         // This is free to write!
         self.ring[seat].num_reads.store(0, Ordering::Release);
         let state = unsafe { &mut *self.ring[seat].state.get() };
@@ -102,26 +97,6 @@ impl<T: Clone> State<T> {
         state.val = Some(value);
         self.ring[seat].check_writing.store(false, Ordering::SeqCst);
         Ok(())
-    }
-
-    /// This function will read the value at the position in the buffer.
-    ///
-    /// IF the read is some, the number of reads is incremented.
-    /// DO NOT call this if you are not a reader.
-    pub(crate) fn read(&self, pos: usize) -> Option<T> {
-        let index = ring_id(pos, self.len);
-
-        let state = unsafe {
-            &mut *self.ring[index].state.0.get()
-            //todo
-        };
-
-        let val = state.val.clone();
-        if val.is_some() {
-            self.ring[index].num_reads.fetch_add(1, Ordering::SeqCst);
-        }
-
-        val
     }
 
     pub(crate) fn add_reader(&self) {
@@ -133,54 +108,6 @@ impl<T: Clone> State<T> {
     }
 }
 
-pub(crate) fn ring_id(val: usize, len: usize) -> usize {
-    (val + 1) % len
-}
-
-struct Seat<T> {
-    // the number of reads.
-    // Readers never need to check if writing, because
-    // writing will lock first, then determine if it's possible to
-    // write based on number of reads.
-    //
-    // In the event a read and a write happen at the same time,
-    // the sender will fail first
-    num_reads: AtomicUsize,
-    check_writing: AtomicBool,
-    state: MutSeatState<T>,
-}
-
-impl<T> Default for Seat<T> {
-    fn default() -> Self {
-        // this is an empty seat. null pointer.
-        // Nothing here.
-        Self {
-            num_reads: AtomicUsize::new(0),
-            check_writing: AtomicBool::new(false),
-            state: MutSeatState(UnsafeCell::new(SeatState {
-                required_reads: 0,
-                val: None,
-            })),
-        }
-    }
-}
-
-struct MutSeatState<T>(UnsafeCell<SeatState<T>>);
-impl<T> fmt::Debug for MutSeatState<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("MutSeatState").field(&self.0).finish()
-    }
-}
-unsafe impl<T> Send for MutSeatState<T> {}
-unsafe impl<T> Sync for MutSeatState<T> {}
-impl<T> Deref for MutSeatState<T> {
-    type Target = UnsafeCell<SeatState<T>>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-struct SeatState<T> {
-    required_reads: usize,
-    val: Option<T>,
-}
+// pub(crate) fn ring_id(val: usize, len: usize) -> usize {
+//     (val + 1) % len
+// }

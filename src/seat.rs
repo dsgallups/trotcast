@@ -1,0 +1,72 @@
+use core::fmt;
+use std::{
+    cell::UnsafeCell,
+    ops::Deref,
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+};
+
+pub(crate) struct Seat<T> {
+    // the number of reads.
+    // Readers never need to check if writing, because
+    // writing will lock first, then determine if it's possible to
+    // write based on number of reads.
+    //
+    // In the event a read and a write happen at the same time,
+    // the sender will fail first
+    pub(crate) num_reads: AtomicUsize,
+    pub(crate) check_writing: AtomicBool,
+    pub(crate) state: MutSeatState<T>,
+}
+
+impl<T> Default for Seat<T> {
+    fn default() -> Self {
+        // this is an empty seat. null pointer.
+        // Nothing here.
+        Self {
+            num_reads: AtomicUsize::new(0),
+            check_writing: AtomicBool::new(false),
+            state: MutSeatState(UnsafeCell::new(SeatState {
+                required_reads: 0,
+                val: None,
+            })),
+        }
+    }
+}
+
+impl<T: Clone> Seat<T> {
+    pub(crate) fn take(&self) -> T {
+        let read = self.num_reads.load(Ordering::Acquire);
+
+        let state = unsafe { &*self.state.get() };
+        assert!(read < state.required_reads);
+
+        let v = if read + 1 == state.required_reads {
+            unsafe { &mut *self.state.get() }.val.take().unwrap()
+        } else {
+            state.val.clone().unwrap()
+        };
+
+        self.num_reads.fetch_add(1, Ordering::AcqRel);
+        v
+    }
+}
+
+pub(crate) struct MutSeatState<T>(UnsafeCell<SeatState<T>>);
+impl<T> fmt::Debug for MutSeatState<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("MutSeatState").field(&self.0).finish()
+    }
+}
+unsafe impl<T> Send for MutSeatState<T> {}
+unsafe impl<T> Sync for MutSeatState<T> {}
+impl<T> Deref for MutSeatState<T> {
+    type Target = UnsafeCell<SeatState<T>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub struct SeatState<T> {
+    pub(crate) required_reads: usize,
+    pub(crate) val: Option<T>,
+}

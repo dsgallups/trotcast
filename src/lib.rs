@@ -7,6 +7,7 @@
 pub mod channel;
 pub mod error;
 pub mod receiver;
+pub mod seat;
 pub mod sender;
 pub mod state;
 
@@ -14,6 +15,7 @@ pub mod prelude {
     pub use crate::channel::*;
     pub use crate::error::*;
     pub use crate::receiver::*;
+    pub(crate) use crate::seat::*;
     pub use crate::sender::*;
     pub use crate::state::*;
 }
