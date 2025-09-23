@@ -11,7 +11,13 @@ fn main() {
         move || {
             let mut x = 0.;
             for _ in 0..500 {
-                s1.send(x).unwrap();
+                loop {
+                    if s1.send(x).is_err() {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
                 x += 1.;
             }
         }
@@ -23,7 +29,13 @@ fn main() {
             let mut x = 990.;
             for _ in 0..100 {
                 std::thread::sleep(Duration::from_millis(400));
-                s2.send(x).unwrap();
+                loop {
+                    if s2.send(x).is_err() {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
                 x /= 3.;
             }
         }
@@ -50,9 +62,22 @@ fn main() {
 
     let receiver_2 = thread::spawn({
         let mut rx_2 = rx.clone();
-        move || {
-            while let Ok(msg) = rx_2.recv() {
+        move || match rx_2.recv() {
+            Ok(msg) => {
                 println!("RX2({}) msg: {msg}", rx_2.head);
+            }
+            Err(e) => {
+                println!("Error: {e:?}");
+            }
+        }
+    });
+
+    thread::spawn({
+        let debug = tx.debugger();
+        move || {
+            loop {
+                std::thread::sleep(Duration::from_secs(1));
+                debug.print_state();
             }
         }
     });

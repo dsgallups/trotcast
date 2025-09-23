@@ -33,6 +33,16 @@ impl<T> Default for Seat<T> {
     }
 }
 
+impl<T> fmt::Debug for Seat<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Seat")
+            .field("num_reads", &self.num_reads)
+            .field("state", &self.state)
+            .field("check_writing", &self.check_writing)
+            .finish()
+    }
+}
+
 impl<T: Clone> Seat<T> {
     pub(crate) fn take(&self) -> T {
         let num_reads = self.num_reads.load(Ordering::Acquire);

@@ -30,7 +30,7 @@ impl<T: Clone> State<T> {
             num_readers: AtomicUsize::new(0),
         }
     }
-    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
+    pub fn send(&self, id: usize, value: T) -> Result<(), SendError<T>> {
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
         // empty space between the head and the tail. This is necessary so that readers can
@@ -65,6 +65,7 @@ impl<T: Clone> State<T> {
         let mut i = 0;
         let seat = loop {
             let tail = self.tail.load(Ordering::SeqCst);
+
             if self.ring[tail]
                 .check_writing
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -72,13 +73,16 @@ impl<T: Clone> State<T> {
             {
                 i += 1;
                 if i > 100 {
-                    panic!("seems like ill loop forever. what happened?");
+                    return Err(SendError::Full(value));
                 }
                 //yeah. SPIN LOCK.
                 continue;
             };
             break tail;
         };
+        // if id == 1 {
+        //     println!("id(1) locked {seat}");
+        // }
 
         let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
 
