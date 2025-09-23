@@ -62,9 +62,23 @@ impl<T: Clone> State<T> {
 
         // Note: I tried having writers write to values later in the tail.
         // But this didn't work because you need a better sync implementation.
+
+        // The element over has to be free to ensure there's always
+        // an empty space between the head and the tail.
+        //let fence = (tail + 1) % self.len;
+
         let mut i = 0;
         let seat = loop {
             let tail = self.tail.load(Ordering::SeqCst);
+
+            let fence = (tail + 1) % self.len;
+            let required_reads = unsafe { (&*self.ring[fence].state.get()).required_reads };
+
+            // the fence has not yet been cleared of reads.
+            if required_reads.saturating_sub(self.ring[fence].num_reads.load(Ordering::SeqCst)) != 0
+            {
+                continue;
+            }
 
             if self.ring[tail]
                 .check_writing
@@ -84,13 +98,13 @@ impl<T: Clone> State<T> {
         //     println!("id(1) locked {seat}");
         // }
 
-        let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
+        // let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
 
-        if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
-            // release the check_write.
-            self.ring[seat].check_writing.store(false, Ordering::SeqCst);
-            return Err(SendError::Full(value));
-        }
+        // if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
+        //     // release the check_write.
+        //     self.ring[seat].check_writing.store(false, Ordering::SeqCst);
+        //     return Err(SendError::Full(value));
+        // }
 
         // This is free to write!
         self.ring[seat].num_reads.store(0, Ordering::Release);

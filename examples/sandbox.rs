@@ -12,11 +12,11 @@ fn main() {
             let mut x = 0.;
             for _ in 0..500 {
                 loop {
-                    // if s1.send(x).is_err() {
-                    //     continue;
-                    // } else {
-                    //     break;
-                    // }
+                    if s1.send(x).is_err() {
+                        continue;
+                    } else {
+                        break;
+                    }
                 }
                 x += 1.;
             }
@@ -62,15 +62,25 @@ fn main() {
 
     let receiver_2 = thread::spawn({
         let mut rx_2 = rx.clone();
-        move || match rx_2.recv() {
-            Ok(msg) => {
-                println!("RX2({}) msg: {msg}", rx_2.head);
-            }
-            Err(e) => {
-                println!("Error: {e:?}");
+        move || loop {
+            match rx_2.recv() {
+                Ok(msg) => {
+                    println!("RX2({}) msg: {msg}", rx_2.head);
+                }
+                Err(e) => {
+                    println!("Error: {e:?}");
+                }
             }
         }
     });
+    // let receiver_2 = thread::spawn({
+    //     let mut rx_2 = rx.clone();
+    //     move || {
+    //         while let Ok(msg) = rx_2.recv() {
+    //             println!("RX2({}) msg: {msg}", rx_2.head);
+    //         }
+    //     }
+    // });
 
     // thread::spawn({
     //     let debug = tx.debugger();
