@@ -11,7 +11,6 @@ fn main() {
         move || {
             let mut x = 0.;
             for _ in 0..500 {
-                std::thread::sleep(Duration::from_millis(200));
                 s1.send(x).unwrap();
                 x += 1.;
             }

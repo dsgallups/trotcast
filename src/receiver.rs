@@ -2,6 +2,7 @@ use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
 pub struct Receiver<T> {
+    id: usize,
     shared: Arc<State<T>>,
     closed: bool,
     pub head: usize,
@@ -9,6 +10,7 @@ pub struct Receiver<T> {
 impl<T> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
         Self {
+            id: 0,
             shared,
             closed: false,
             head: 0,
@@ -19,6 +21,7 @@ impl<T: Clone> Clone for Receiver<T> {
     fn clone(&self) -> Self {
         self.shared.add_reader();
         Self {
+            id: self.id + 1,
             shared: Arc::clone(&self.shared),
             closed: self.closed,
             head: self.head,
