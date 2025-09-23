@@ -12,6 +12,7 @@ impl<T> Sender<T> {
 
 impl<T: Clone> Clone for Sender<T> {
     fn clone(&self) -> Self {
+        self.shared.add_writer();
         Self {
             shared: Arc::clone(&self.shared),
         }

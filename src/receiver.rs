@@ -21,7 +21,7 @@ impl<T: Clone> Clone for Receiver<T> {
         Self {
             shared: Arc::clone(&self.shared),
             closed: self.closed,
-            pos: self.shared.tail,
+            pos: self.pos,
         }
     }
 }
@@ -46,12 +46,31 @@ impl<T: Clone> Receiver<T> {
         if self.closed {
             return Err(InnerRecvError::Disconnected);
         }
-        let pos = self.shared.read(self.pos);
-        //todo: increment pos if Some(T)
-        todo!()
+        loop {
+            match self.shared.read(self.pos) {
+                Ok(Some(value)) => {
+                    return Ok(value);
+                }
+                Ok(None) => {
+                    return Err(InnerRecvError::Empty);
+                }
+                Err(msg) => match msg {
+                    MessageReadErr::BusyWriting => {
+                        if cond == RecvCondition::Block {
+                            continue;
+                        } else {
+                            return Err(InnerRecvError::Empty);
+                        }
+                    }
+                    MessageReadErr::InvalidReader => {
+                        panic!("Invalid reader found!");
+                    }
+                },
+            }
+        }
     }
 }
-
+#[derive(PartialEq, Eq)]
 pub(crate) enum RecvCondition {
     Try,
     Block,
