@@ -4,7 +4,7 @@ use std::sync::{Arc, atomic::Ordering};
 pub struct Receiver<T> {
     shared: Arc<State<T>>,
     closed: bool,
-    head: usize,
+    pub head: usize,
 }
 impl<T> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {

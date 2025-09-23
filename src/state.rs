@@ -95,7 +95,7 @@ impl<T: Clone> State<T> {
         state.val = Some(value);
 
         // set the tail last and then unlock check_writing
-        let tail = seat + 1 % self.len;
+        let tail = (seat + 1) % self.len;
         self.tail.store(tail, Ordering::Release);
         self.ring[seat].check_writing.store(false, Ordering::SeqCst);
 
