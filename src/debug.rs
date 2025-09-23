@@ -10,8 +10,9 @@ impl<T> Debug<T> {
     pub fn print_state(&self) -> String {
         let mut str = String::new();
         str.push_str(&format!(
-            "Tail: {}\n",
-            self.shared.tail.load(Ordering::Relaxed)
+            "Tail: {}\nnum readers: {}\n",
+            self.shared.tail.load(Ordering::Relaxed),
+            self.shared.num_readers.load(Ordering::Relaxed)
         ));
         for (i, ring) in self.shared.ring.iter().enumerate() {
             str.push_str(&format!("Seat({i}): {ring:?}\n"));

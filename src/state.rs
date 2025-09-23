@@ -1,5 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use tracing::info;
+
 use crate::prelude::*;
 
 /// TODO: we will need to
@@ -30,7 +32,7 @@ impl<T: Clone> State<T> {
             num_readers: AtomicUsize::new(0),
         }
     }
-    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
+    pub fn send(&self, id: usize, value: T) -> Result<(), SendError<T>> {
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
         // empty space between the head and the tail. This is necessary so that readers can
@@ -67,16 +69,26 @@ impl<T: Clone> State<T> {
         // an empty space between the head and the tail.
         //let fence = (tail + 1) % self.len;
 
+        if self.num_readers.load(Ordering::Relaxed) == 0 {
+            return Err(SendError::Disconnected(value));
+        }
         let mut i = 0;
         let seat = loop {
             let tail = self.tail.load(Ordering::SeqCst);
 
             let fence = (tail + 1) % self.len;
+
+            // self.expected(fence) expect we haven't yet implemented "reader left already" (rleft)
             let required_reads = unsafe { (&*self.ring[fence].state.get()).required_reads };
 
             // the fence has not yet been cleared of reads.
             if required_reads.saturating_sub(self.ring[fence].num_reads.load(Ordering::SeqCst)) != 0
             {
+                continue;
+            }
+            // this can happen if we're filling up the buffer way too quickly
+            if self.ring[fence].check_writing.load(Ordering::SeqCst) {
+                info!("uh oh fence: {fence}, tail: {tail}, id: {id}");
                 continue;
             }
 
@@ -102,6 +114,9 @@ impl<T: Clone> State<T> {
             // release the check_write.
             self.ring[seat].check_writing.store(false, Ordering::SeqCst);
             return Err(SendError::Full(value));
+        }
+        if id == 2 {
+            info!("{id} grabbed");
         }
 
         // This is free to write!

@@ -17,7 +17,7 @@ impl<T: Clone> Receiver<T> {
             head: 0,
         }
     }
-    pub fn into_spawner(self) -> Spawner<T> {
+    pub fn to_spawner(&self) -> Spawner<T> {
         Spawner {
             shared: Arc::clone(&self.shared),
         }

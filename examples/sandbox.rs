@@ -1,11 +1,16 @@
 #![allow(unused)]
 use std::{collections::VecDeque, thread, time::Duration};
 
+use tracing::{Level, info};
 use trotcast::prelude::*;
 
 fn main() {
     let (tx, rx) = channel::<f32>(5);
-    let spawner = rx.into_spawner();
+    let spawner = rx.to_spawner();
+
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
 
     // sender 1 and 2 can send messages by cloning tx.
     // let sender_1 = thread::spawn({
@@ -76,14 +81,14 @@ fn main() {
 
     std::thread::sleep(Duration::from_secs(1));
     thread::spawn({
-        let mut rx_1 = spawner.spawn_rx();
+        let mut rx_1 = rx;
         let tx = tx_vals.clone();
         move || {
             let mut count = 0;
             loop {
                 match rx_1.try_recv() {
                     Ok(msg) => {
-                        println!("RX1({count}) msg: {msg}");
+                        info!("RX1({count}) msg: {msg}");
                         _ = tx.send((1, msg, count, rx_1.head));
                         count += 1;
                         std::thread::sleep(Duration::from_millis(100));
@@ -97,46 +102,52 @@ fn main() {
         }
     });
 
-    std::thread::sleep(Duration::from_secs(2));
-
-    thread::spawn({
-        let mut rx_2 = spawner.spawn_rx();
-        let tx = tx_vals.clone();
-        move || {
-            let mut count = 0;
-            loop {
-                match rx_2.recv() {
-                    Ok(msg) => {
-                        println!("RX2({count}) msg: {msg}");
-                        _ = tx.send((2, msg, count, rx_2.head));
-                        count += 1;
-                    }
-                    Err(e) => {
-                        println!("Error: {e:?}");
-                    }
-                }
-            }
-        }
-    });
     // Thoughts:
     //
     // I think it's possible that the receiver's head is sitting behind the tail which is no good.
 
-    let debug = tx.debugger();
+    thread::spawn(move || {
+        let mut rx_1_head = None;
+        let mut rx_2_head = None;
+        let dbger = tx.debugger();
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
 
-    let mut rx_1_head = None;
-    let mut rx_2_head = None;
-    loop {
-        std::thread::sleep(Duration::from_secs(1));
-        println!("{}", debug.print_state());
-        while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
-            if id == 1 {
-                rx_1_head = Some(head);
-            } else {
-                rx_2_head = Some(head);
+            info!("{}", dbger.print_state());
+            while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
+                if id == 1 {
+                    rx_1_head = Some(head);
+                } else {
+                    rx_2_head = Some(head);
+                }
             }
+            info!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
         }
-        println!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
+    });
+
+    let mut i = 2;
+    loop {
+        std::thread::sleep(Duration::from_secs(2));
+        thread::spawn({
+            let mut my_rx = spawner.spawn_rx();
+            let tx = tx_vals.clone();
+            move || {
+                let mut count = 0;
+                loop {
+                    match my_rx.recv() {
+                        Ok(msg) => {
+                            info!("RX{i}({count}) msg: {msg}");
+                            //_ = tx.send((2, msg, count, my_rx.head));
+                            count += 1;
+                        }
+                        Err(e) => {
+                            info!("Error: {e:?}");
+                        }
+                    }
+                }
+            }
+        });
+        i += 1;
     }
 
     // let mut recv1 = Vec::new();
@@ -166,7 +177,7 @@ fn main() {
     //             for (statement, c1_head, c2_head, count) in statements {
     //                 past_strs.push_str(&format!("State at {count}:\n{statement}\n\nthread1 head: {c1_head}\nthread2 head: {c2_head}\n\n======="));
     //             }
-    //             //println!("unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}");
+    //             //info!("unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}");
 
     //             panic!(
     //                 "unequal (RX@{c1}: {val1}, RX@{c2}): {val2}\n{recv1:?}\n{recv2:?}\n{final_state}\n\n{past_strs}"
