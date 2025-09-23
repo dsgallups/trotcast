@@ -90,7 +90,7 @@ fn main() {
                         info!("RX1({count}) msg: {msg}");
                         _ = tx.send((1, msg, count, rx_1.head));
                         count += 1;
-                        std::thread::sleep(Duration::from_millis(100));
+                        //std::thread::sleep(Duration::from_millis(100));
                     }
                     Err(TryRecvError::Disconnected) => {
                         break;
@@ -128,36 +128,36 @@ fn main() {
 
     let mut i = 2;
     loop {
-        std::thread::sleep(Duration::from_secs(2));
+        // std::thread::sleep(Duration::from_secs(2));
 
-        for i in 0..((i % 4) + 2) {
-            std::thread::sleep(Duration::from_millis(2));
-            thread::spawn({
-                let mut my_rx = tx.spawn_rx();
-                let tx = tx_vals.clone();
-                move || {
-                    let mut count = 0;
-                    loop {
-                        match my_rx.recv() {
-                            Ok(msg) => {
-                                info!("RX{i}({count}) msg: {msg}");
-                                //_ = tx.send((2, msg, count, my_rx.head));
-                                count += 1;
-                                if count > 30 {
-                                    warn!("Dropped RX{i}");
-                                    break;
-                                }
-                            }
-                            Err(e) => {
-                                info!("Error: {e:?}");
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        // for i in 0..((i % 4) + 2) {
+        //     std::thread::sleep(Duration::from_millis(2));
+        //     thread::spawn({
+        //         let mut my_rx = tx.spawn_rx();
+        //         let tx = tx_vals.clone();
+        //         move || {
+        //             let mut count = 0;
+        //             loop {
+        //                 match my_rx.recv() {
+        //                     Ok(msg) => {
+        //                         info!("RX{i}({count}) msg: {msg}");
+        //                         //_ = tx.send((2, msg, count, my_rx.head));
+        //                         count += 1;
+        //                         if count > 30 {
+        //                             warn!("Dropped RX{i}");
+        //                             break;
+        //                         }
+        //                     }
+        //                     Err(e) => {
+        //                         info!("Error: {e:?}");
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     });
+        // }
 
-        i += 1;
+        // i += 1;
     }
 
     // let mut recv1 = Vec::new();
