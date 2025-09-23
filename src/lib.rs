@@ -5,21 +5,21 @@
 //!
 //! TODO
 pub mod channel;
+#[cfg(feature = "debug")]
 pub mod debug;
 pub mod error;
 pub mod receiver;
 pub mod seat;
 pub mod sender;
-pub mod spawner;
 pub mod state;
 
 pub mod prelude {
     pub use crate::channel::*;
+    #[cfg(feature = "debug")]
     pub use crate::debug::*;
     pub use crate::error::*;
     pub use crate::receiver::*;
     pub(crate) use crate::seat::*;
     pub use crate::sender::*;
-    pub use crate::spawner::*;
     pub use crate::state::*;
 }

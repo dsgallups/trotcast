@@ -2,28 +2,27 @@ use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
 pub struct Sender<T> {
-    id: usize,
     shared: Arc<State<T>>,
 }
 impl<T: Clone> Sender<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
-        shared.add_writer();
-        Self { id: 0, shared }
+        shared.num_writers.fetch_add(1, Ordering::Release);
+        Self { shared }
     }
+    #[cfg(feature = "debug")]
     pub fn debugger(&self) -> Debug<T> {
         Debug {
             shared: Arc::clone(&self.shared),
         }
     }
+    pub fn spawn_rx(&self) -> Receiver<T> {
+        Receiver::new(Arc::clone(&self.shared))
+    }
 }
 
 impl<T: Clone> Clone for Sender<T> {
     fn clone(&self) -> Self {
-        self.shared.add_writer();
-        Self {
-            id: self.id + 1,
-            shared: Arc::clone(&self.shared),
-        }
+        Self::new(Arc::clone(&self.shared))
     }
 }
 

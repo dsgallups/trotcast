@@ -8,7 +8,6 @@ pub fn channel<T: Clone>(capacity: usize) -> (Sender<T>, Receiver<T>) {
     let shared = Arc::new(State::new(capacity));
 
     let sender = Sender::new(Arc::clone(&shared));
-
     let receiver = Receiver::new(shared);
 
     (sender, receiver)

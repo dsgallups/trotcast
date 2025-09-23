@@ -123,11 +123,11 @@ impl<T: Clone> State<T> {
         Ok(())
     }
 
-    pub(crate) fn add_reader(&self) {
-        self.num_readers.fetch_add(1, Ordering::Release);
-    }
+    // pub(crate) fn add_reader(&self) {
+    //     self.num_readers.fetch_add(1, Ordering::Release);
+    // }
 
-    pub(crate) fn add_writer(&self) {
-        self.num_writers.fetch_add(1, Ordering::Release);
-    }
+    // pub(crate) fn add_writer(&self) {
+    //     self.num_writers.fetch_add(1, Ordering::Release);
+    // }
 }

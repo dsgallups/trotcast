@@ -6,7 +6,6 @@ use trotcast::prelude::*;
 
 fn main() {
     let (tx, rx) = channel::<f32>(5);
-    let spawner = rx.to_spawner();
 
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
@@ -106,22 +105,24 @@ fn main() {
     //
     // I think it's possible that the receiver's head is sitting behind the tail which is no good.
 
-    thread::spawn(move || {
-        let mut rx_1_head = None;
-        let mut rx_2_head = None;
+    thread::spawn({
         let dbger = tx.debugger();
-        loop {
-            std::thread::sleep(Duration::from_secs(1));
+        move || {
+            let mut rx_1_head = None;
+            let mut rx_2_head = None;
+            loop {
+                std::thread::sleep(Duration::from_secs(1));
 
-            info!("{}", dbger.print_state());
-            while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
-                if id == 1 {
-                    rx_1_head = Some(head);
-                } else {
-                    rx_2_head = Some(head);
+                info!("{}", dbger.print_state());
+                while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
+                    if id == 1 {
+                        rx_1_head = Some(head);
+                    } else {
+                        rx_2_head = Some(head);
+                    }
                 }
+                info!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
             }
-            info!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
         }
     });
 
@@ -129,7 +130,7 @@ fn main() {
     loop {
         std::thread::sleep(Duration::from_secs(2));
         thread::spawn({
-            let mut my_rx = spawner.spawn_rx();
+            let mut my_rx = tx.spawn_rx();
             let tx = tx_vals.clone();
             move || {
                 let mut count = 0;

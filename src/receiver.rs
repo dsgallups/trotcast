@@ -9,34 +9,19 @@ pub struct Receiver<T> {
     #[cfg(not(feature = "debug"))]
     pub(crate) head: usize,
 }
+
 impl<T: Clone> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
-        shared.add_reader();
+        shared.num_readers.fetch_add(1, Ordering::Release);
         Self {
+            closed: shared.num_writers.load(Ordering::Relaxed) == 0,
+            head: shared.tail.load(Ordering::Relaxed),
             shared,
-            closed: false,
-            head: 0,
         }
     }
-    pub fn to_spawner(&self) -> Spawner<T> {
-        Spawner {
-            shared: Arc::clone(&self.shared),
-        }
+    pub fn spawn_tx(&self) -> Sender<T> {
+        Sender::new(Arc::clone(&self.shared))
     }
-}
-
-impl<T: Clone> Clone for Receiver<T> {
-    fn clone(&self) -> Self {
-        self.shared.add_reader();
-        Self {
-            shared: Arc::clone(&self.shared),
-            closed: self.closed,
-            head: self.shared.tail.load(Ordering::Relaxed),
-        }
-    }
-}
-
-impl<T: Clone> Receiver<T> {
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
         self.recv_inner(RecvCondition::Try).map_err(|e| match e {
             InnerRecvError::Disconnected => TryRecvError::Disconnected,
@@ -93,6 +78,11 @@ pub(crate) enum RecvCondition {
     Block,
 }
 
+impl<T: Clone> Clone for Receiver<T> {
+    fn clone(&self) -> Self {
+        Receiver::new(Arc::clone(&self.shared))
+    }
+}
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         self.shared.num_readers.fetch_sub(1, Ordering::Release);
