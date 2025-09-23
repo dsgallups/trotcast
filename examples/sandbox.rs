@@ -3,7 +3,7 @@ use std::{thread, time::Duration};
 use trotcast::prelude::*;
 
 fn main() {
-    let (tx, rx) = channel::<f32>(20);
+    let (tx, rx) = channel::<f32>(5);
 
     // sender 1 and 2 can send messages by cloning tx.
     let sender_1 = thread::spawn({
@@ -12,11 +12,11 @@ fn main() {
             let mut x = 0.;
             for _ in 0..500 {
                 loop {
-                    if s1.send(x).is_err() {
-                        continue;
-                    } else {
-                        break;
-                    }
+                    // if s1.send(x).is_err() {
+                    //     continue;
+                    // } else {
+                    //     break;
+                    // }
                 }
                 x += 1.;
             }
@@ -72,15 +72,15 @@ fn main() {
         }
     });
 
-    thread::spawn({
-        let debug = tx.debugger();
-        move || {
-            loop {
-                std::thread::sleep(Duration::from_secs(1));
-                debug.print_state();
-            }
-        }
-    });
+    // thread::spawn({
+    //     let debug = tx.debugger();
+    //     move || {
+    //         loop {
+    //             std::thread::sleep(Duration::from_secs(1));
+    //             debug.print_state();
+    //         }
+    //     }
+    // });
 
     let handles = [sender_1, sender_2, receiver_1, receiver_2];
     //let handles = [sender_1, sender_2, receiver_1, receiver_2];
