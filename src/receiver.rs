@@ -48,24 +48,17 @@ impl<T: Clone> Receiver<T> {
         }
         loop {
             match self.shared.read(self.pos) {
-                Ok(Some(value)) => {
+                Some(value) => {
+                    self.pos += 1;
                     return Ok(value);
                 }
-                Ok(None) => {
-                    return Err(InnerRecvError::Empty);
+                None => {
+                    if cond == RecvCondition::Block {
+                        continue;
+                    } else {
+                        return Err(InnerRecvError::Empty);
+                    }
                 }
-                Err(msg) => match msg {
-                    MessageReadErr::BusyWriting => {
-                        if cond == RecvCondition::Block {
-                            continue;
-                        } else {
-                            return Err(InnerRecvError::Empty);
-                        }
-                    }
-                    MessageReadErr::InvalidReader => {
-                        panic!("Invalid reader found!");
-                    }
-                },
             }
         }
     }

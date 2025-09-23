@@ -38,7 +38,7 @@ fn main() {
             loop {
                 match rx_1.try_recv() {
                     Ok(msg) => {
-                        println!("Value: {msg}");
+                        println!("RX1 msg: {msg}");
                     }
                     Err(TryRecvError::Disconnected) => {
                         break;

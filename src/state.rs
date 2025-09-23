@@ -1,5 +1,3 @@
-mod option;
-
 use core::fmt;
 use std::{
     cell::UnsafeCell,
@@ -106,7 +104,11 @@ impl<T: Clone> State<T> {
         Ok(())
     }
 
-    pub(crate) fn read(&self, pos: usize) -> Result<Option<T>, MessageReadErr> {
+    /// This function will read the value at the position in the buffer.
+    ///
+    /// IF the read is some, the number of reads is incremented.
+    /// DO NOT call this if you are not a reader.
+    pub(crate) fn read(&self, pos: usize) -> Option<T> {
         let index = ring_id(pos, self.len);
 
         let state = unsafe {
@@ -115,9 +117,11 @@ impl<T: Clone> State<T> {
         };
 
         let val = state.val.clone();
-        self.ring[index].num_reads.fetch_add(1, Ordering::SeqCst);
+        if val.is_some() {
+            self.ring[index].num_reads.fetch_add(1, Ordering::SeqCst);
+        }
 
-        Ok(val)
+        val
     }
 
     pub(crate) fn add_reader(&self) {
@@ -129,17 +133,18 @@ impl<T: Clone> State<T> {
     }
 }
 
-fn ring_id(val: usize, len: usize) -> usize {
+pub(crate) fn ring_id(val: usize, len: usize) -> usize {
     (val + 1) % len
 }
 
-pub(crate) enum MessageReadErr {
-    BusyWriting,
-    InvalidReader,
-}
-
 struct Seat<T> {
-    // the number of reads
+    // the number of reads.
+    // Readers never need to check if writing, because
+    // writing will lock first, then determine if it's possible to
+    // write based on number of reads.
+    //
+    // In the event a read and a write happen at the same time,
+    // the sender will fail first
     num_reads: AtomicUsize,
     check_writing: AtomicBool,
     state: MutSeatState<T>,
