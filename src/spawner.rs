@@ -12,7 +12,7 @@ impl<T: Clone> Spawner<T> {
         Receiver {
             id: 100,
             shared: Arc::clone(&self.shared),
-            closed: self.shared.num_readers.load(Ordering::Relaxed) == 0,
+            closed: self.shared.num_writers.load(Ordering::Relaxed) == 0,
             head: self.shared.tail.load(Ordering::Relaxed),
         }
     }
