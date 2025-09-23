@@ -33,6 +33,7 @@ fn main() {
         move || {
             let mut x = 0.;
             loop {
+                std::thread::sleep(Duration::from_millis(3000));
                 if s1.send(x).is_err() {
                     continue;
                 } else {
@@ -130,54 +131,33 @@ fn main() {
     loop {
         std::thread::sleep(Duration::from_secs(2));
 
-        // if i % 2 == 1 {
-        //     thread::spawn({
-        //         let mut my_rx = tx.spawn_rx();
-        //         let tx = tx_vals.clone();
-        //         move || {
-        //             let mut count = 0;
-        //             loop {
-        //                 match my_rx.recv() {
-        //                     Ok(msg) => {
-        //                         info!("RX{i}({count}) msg: {msg}");
-        //                         //_ = tx.send((2, msg, count, my_rx.head));
-        //                         count += 1;
-        //                         if count > 30 {
-        //                             warn!("Dropped RX{i}");
-        //                             break;
-        //                         }
-        //                     }
-        //                     Err(e) => {
-        //                         info!("Error: {e:?}");
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     });
-        // }
-        thread::spawn({
-            let mut my_rx = tx.spawn_rx();
-            let tx = tx_vals.clone();
-            move || {
-                let mut count = 0;
-                loop {
-                    match my_rx.recv() {
-                        Ok(msg) => {
-                            info!("RX{i}({count}) msg: {msg}");
-                            //_ = tx.send((2, msg, count, my_rx.head));
-                            count += 1;
-                            // if count > 30 {
-                            //     warn!("Dropped RX{i}");
-                            //     break;
-                            // }
-                        }
-                        Err(e) => {
-                            info!("Error: {e:?}");
+        for i in 0..((i % 4) + 2) {
+            std::thread::sleep(Duration::from_millis(2));
+            thread::spawn({
+                let mut my_rx = tx.spawn_rx();
+                let tx = tx_vals.clone();
+                move || {
+                    let mut count = 0;
+                    loop {
+                        match my_rx.recv() {
+                            Ok(msg) => {
+                                info!("RX{i}({count}) msg: {msg}");
+                                //_ = tx.send((2, msg, count, my_rx.head));
+                                count += 1;
+                                if count > 30 {
+                                    warn!("Dropped RX{i}");
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                info!("Error: {e:?}");
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
+
         i += 1;
     }
 
