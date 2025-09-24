@@ -4,6 +4,36 @@ A multi-producer, multi-consumer broadcast channel implementation.
 This crate provides a broadcast channel where multiple senders can send messages
 and multiple receivers will each receive a copy of every message sent.
 
+# Overview
+
+There are three structures to handle message passing
+
+## [`trotcast::channel`](channel)
+Creates a new channel with a single sender and receiver.
+
+## [`Sender`]
+
+A sender handle for the broadcast channel that allows sending messages to all receivers.
+
+You can clone senders. If you need another `Receiver`, you can call `Receiver::spawn_rx`.
+
+Senders will lock a `RwLock` when writing. I tried to not do this. If this behavior is undesirable, and you are aware of a better solution, please let me know!
+
+
+## [`Receiver`]
+A receiver handle for the broadcast channel that allows consuming messages.
+
+Note: a channel should always have one active receiver. If you do not read
+from all receivers, then your channel will be blocked on the non-reading receiver.
+
+However, other receivers will be able to receiver prior messages until reaching
+the state of the non-reading receiver.
+
+
+You can clone receivers. If you need another `Sender`, you can call `Receiver::spawn_tx`.
+
+Recievers will not lock any `Mutex` or `RwLock`.
+
 # Example
 
 ```
@@ -86,15 +116,23 @@ use std::sync::Arc;
 
 use crate::prelude::*;
 
+/// Error types
 pub mod error;
-pub mod receiver;
-pub mod seat;
-pub mod sender;
-pub mod state;
+
+mod receiver;
+pub use receiver::*;
+
+mod sender;
+pub use sender::*;
+
+pub(crate) mod seat;
+
+pub(crate) mod state;
 
 #[cfg(feature = "debug")]
 pub mod debug;
 
+/// Create a new mpmc broadcast channel with the provided capacity.
 pub fn channel<T: Clone>(capacity: usize) -> (Sender<T>, Receiver<T>) {
     assert!(capacity > 0, "Capacity needs to be greater than 0");
 
@@ -112,7 +150,7 @@ pub mod prelude {
     pub use crate::receiver::*;
     pub(crate) use crate::seat::*;
     pub use crate::sender::*;
-    pub use crate::state::*;
+    pub(crate) use crate::state::*;
 
     #[cfg(feature = "debug")]
     pub use crate::debug::*;

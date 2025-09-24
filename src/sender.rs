@@ -10,12 +10,18 @@ impl<T: Clone> Sender<T> {
         shared.num_writers.fetch_add(1, Ordering::Release);
         Self { shared }
     }
+
+    /// Spawns a debugger from the sender
+    ///
+    /// Enabled with the `debug` feature
     #[cfg(feature = "debug")]
     pub fn debugger(&self) -> Debug<T> {
         Debug {
             shared: Arc::clone(&self.shared),
         }
     }
+
+    /// Spawns a new [`Receiver`]
     pub fn spawn_rx(&self) -> Receiver<T> {
         Receiver::new(Arc::clone(&self.shared))
     }
@@ -61,6 +67,10 @@ impl<T: Clone> Sender<T> {
             return Ok(());
         }
     }
+    /// Sends a message. Will loop if the channel is full.
+    ///
+    /// # Errors
+    /// - if there are no readers to receive the message.
     pub fn blocking_send(&self, value: T) -> Result<(), BlockingSendError<T>> {
         self.send_inner(value, true).map_err(|e| match e {
             SendError::Disconnected(val) => BlockingSendError::Disconnected(val),
@@ -68,6 +78,11 @@ impl<T: Clone> Sender<T> {
         })
     }
 
+    /// Sends a message.
+    ///
+    /// # Errors
+    /// - if there are no readers to receive the message.
+    /// - if the channel is full.
     pub fn send(&self, value: T) -> Result<(), SendError<T>> {
         self.send_inner(value, false)
     }

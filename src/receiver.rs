@@ -25,15 +25,26 @@ impl<T: Clone> Receiver<T> {
             shared,
         }
     }
+    /// Spawn a [`Sender`]
     pub fn spawn_tx(&self) -> Sender<T> {
         Sender::new(Arc::clone(&self.shared))
     }
+    /// Try to receive a message.
+    ///
+    /// # Errors
+    /// - if there's no new message available
+    /// - if the channel is closed
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
         self.recv_inner(RecvCondition::Try).map_err(|e| match e {
             InnerRecvError::Disconnected => TryRecvError::Disconnected,
             InnerRecvError::Empty => TryRecvError::Empty,
         })
     }
+
+    /// Receive a message. Loops until a message is available.
+    ///
+    /// # Errors
+    /// - if the channel is closed
     pub fn recv(&mut self) -> Result<T, RecvError> {
         self.recv_inner(RecvCondition::Block).map_err(|e| match e {
             InnerRecvError::Disconnected => RecvError::Disconnected,
