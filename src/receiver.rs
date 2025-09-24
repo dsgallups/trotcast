@@ -1,6 +1,12 @@
 use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
+/// A receiver handle for the broadcast channel that allows for consuming messages.
+///
+/// ## Notes
+///
+/// If you have a receiver and don't read from it, that receiver
+/// will block other receivers from receiving messages.
 pub struct Receiver<T> {
     pub(crate) shared: Arc<State<T>>,
     pub(crate) closed: bool,
@@ -19,15 +25,26 @@ impl<T: Clone> Receiver<T> {
             shared,
         }
     }
+    /// Spawn a [`Sender`]
     pub fn spawn_tx(&self) -> Sender<T> {
         Sender::new(Arc::clone(&self.shared))
     }
+    /// Try to receive a message.
+    ///
+    /// # Errors
+    /// - if there's no new message available
+    /// - if the channel is closed
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
         self.recv_inner(RecvCondition::Try).map_err(|e| match e {
             InnerRecvError::Disconnected => TryRecvError::Disconnected,
             InnerRecvError::Empty => TryRecvError::Empty,
         })
     }
+
+    /// Receive a message. Loops until a message is available.
+    ///
+    /// # Errors
+    /// - if the channel is closed
     pub fn recv(&mut self) -> Result<T, RecvError> {
         self.recv_inner(RecvCondition::Block).map_err(|e| match e {
             InnerRecvError::Disconnected => RecvError::Disconnected,
@@ -64,7 +81,6 @@ impl<T: Clone> Receiver<T> {
 
         let head = self.head;
         let ret = self.shared.ring[head].take();
-
         self.head = (head + 1) % self.shared.len;
         Ok(ret)
     }
@@ -83,5 +99,16 @@ impl<T: Clone> Clone for Receiver<T> {
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         self.shared.num_readers.fetch_sub(1, Ordering::Release);
+        let mut cur = self.head;
+        let tail = self.shared.tail.load(Ordering::SeqCst);
+        // this probably means that some readers will lose info.
+        while cur != tail {
+            #[cfg(feature = "debug")]
+            tracing::info!("Drop Proc: \nAdding 1 to {cur}");
+            self.shared.ring[cur]
+                .num_reads
+                .fetch_add(1, Ordering::Release);
+            cur = (cur + 1) % self.shared.len;
+        }
     }
 }

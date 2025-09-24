@@ -2,9 +2,10 @@ use core::fmt;
 use std::{
     cell::UnsafeCell,
     ops::Deref,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
+/// A slot in the ring buffer that holds a value and tracks read operations.
 pub(crate) struct Seat<T> {
     // the number of reads.
     // Readers never need to check if writing, because
@@ -14,7 +15,6 @@ pub(crate) struct Seat<T> {
     // In the event a read and a write happen at the same time,
     // the sender will fail first
     pub(crate) num_reads: AtomicUsize,
-    pub(crate) check_writing: AtomicBool,
     pub(crate) state: MutSeatState<T>,
 }
 
@@ -22,7 +22,6 @@ impl<T> Default for Seat<T> {
     fn default() -> Self {
         Self {
             num_reads: AtomicUsize::new(0),
-            check_writing: AtomicBool::new(false),
             state: MutSeatState(UnsafeCell::new(SeatState {
                 required_reads: 0,
                 val: None,
@@ -36,7 +35,6 @@ impl<T> fmt::Debug for Seat<T> {
         f.debug_struct("Seat")
             .field("num_reads", &self.num_reads)
             .field("state", &self.state)
-            .field("check_writing", &self.check_writing)
             .finish()
     }
 }
@@ -53,15 +51,14 @@ impl<T: Clone> Seat<T> {
             required_reads
         );
 
-        let v = if num_reads + 1 == state.required_reads {
+        let value = if num_reads + 1 == state.required_reads {
             unsafe { &mut *self.state.get() }.val.take().unwrap()
         } else {
             state.val.clone().unwrap()
         };
 
-        // race condition: line state.rs:111
         self.num_reads.fetch_add(1, Ordering::SeqCst);
-        v
+        value
     }
 }
 
@@ -82,6 +79,7 @@ impl<T> Deref for MutSeatState<T> {
     }
 }
 
+/// State of a seat in the ring buffer containing the value and read requirements.
 pub struct SeatState<T> {
     pub(crate) required_reads: usize,
     pub(crate) val: Option<T>,
