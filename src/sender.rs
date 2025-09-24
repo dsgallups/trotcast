@@ -6,6 +6,7 @@ pub struct Sender<T> {
 }
 impl<T: Clone> Sender<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
+        shared.num_writers.fetch_add(1, Ordering::Release);
         Self { shared }
     }
     #[cfg(feature = "debug")]
