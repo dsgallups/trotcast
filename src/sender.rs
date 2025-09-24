@@ -48,9 +48,6 @@ impl<T: Clone> Sender<T> {
 
         // set the tail last and then unlock check_writing
         let tail = (seat + 1) % self.shared.len;
-        self.shared.ring[seat]
-            .num_writes
-            .fetch_add(1, Ordering::Release);
 
         self.shared.ring[seat].num_reads.store(0, Ordering::SeqCst);
         self.shared.tail.store(tail, Ordering::SeqCst);
