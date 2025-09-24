@@ -1,5 +1,8 @@
 use crate::prelude::*;
-use std::sync::{Arc, atomic::Ordering};
+use std::{
+    hint,
+    sync::{Arc, atomic::Ordering},
+};
 
 pub struct Receiver<T> {
     pub(crate) shared: Arc<State<T>>,
@@ -63,6 +66,10 @@ impl<T: Clone> Receiver<T> {
         }
 
         let head = self.head;
+        // doesn't fix 2
+        // while self.shared.ring[head].check_writing.load(Ordering::SeqCst) {
+        //     hint::spin_loop();
+        // }
         let ret = self.shared.ring[head].take();
 
         self.head = (head + 1) % self.shared.len;

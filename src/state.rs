@@ -74,6 +74,11 @@ impl<T: Clone> State<T> {
 
             let fence = (tail + 1) % self.len;
 
+            // doesn't fix 1
+            // if self.ring[fence].check_writing.load(Ordering::SeqCst) {
+            //     continue;
+            // }
+
             // self.expected(fence) expect we haven't yet implemented "reader left already" (rleft)
             let required_reads = unsafe { (&*self.ring[fence].state.get()).required_reads };
 
