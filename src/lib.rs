@@ -37,8 +37,9 @@ Recievers will not lock any `Mutex` or `RwLock`.
 # Example
 
 ```
+use trotcast::prelude::*;
 // Create a broadcast channel with a capacity of 2
-let tx = trotcast::channel(2);
+let tx = Channel::new(2);
 
 // Clone the sender, and create receivers for multiple producers/consumers
 let tx2 = tx.clone();
@@ -119,8 +120,8 @@ pub mod error;
 mod receiver;
 pub use receiver::*;
 
-mod sender;
-pub use sender::*;
+mod channel;
+pub use channel::*;
 
 pub(crate) mod seat;
 
@@ -130,10 +131,10 @@ pub(crate) mod state;
 pub mod debug;
 
 pub mod prelude {
+    pub use crate::channel::*;
     pub use crate::error::*;
     pub use crate::receiver::*;
     pub(crate) use crate::seat::*;
-    pub use crate::sender::*;
     pub(crate) use crate::state::*;
 
     #[cfg(feature = "debug")]

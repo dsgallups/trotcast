@@ -1,8 +1,10 @@
 use std::thread;
 
+use trotcast::prelude::*;
+
 fn main() {
     // Create a broadcast channel with a capacity of 2
-    let tx = trotcast::channel(2);
+    let tx = Channel::new(2);
 
     // Clone the sender and receiver for multiple producers/consumers
     let tx2 = tx.clone();
