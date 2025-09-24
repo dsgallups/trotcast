@@ -97,7 +97,9 @@ fn main() {
                 rx_2_head = Some(head);
             }
         }
-        info!("{}", dbger.print_state());
-        info!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
+        info!(
+            "{}\nrx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}",
+            dbger.print_state()
+        );
     }
 }

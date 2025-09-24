@@ -19,3 +19,7 @@ tracing = {version = "0.1", optional = true}
 tracing-subscriber =  "0.3"
 crossbeam-channel = "0.5.15"
 tracing = {version = "0.1"}
+
+[[example]]
+name = "simple"
+required-features = ["debug"]
