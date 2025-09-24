@@ -2,13 +2,17 @@ use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
 /// A sender handle for the broadcast channel that allows sending messages to all receivers.
-pub struct Sender<T> {
+pub struct Channel<T> {
     shared: Arc<State<T>>,
 }
-impl<T: Clone> Sender<T> {
+impl<T: Clone> Channel<T> {
     /// Create a new channel
     pub fn new(capacity: usize) -> Self {
-        crate::channel(capacity)
+        assert!(capacity > 0, "Capacity needs to be greater than 0");
+
+        let shared = Arc::new(State::new(capacity));
+
+        Self::from_shared_state(Arc::clone(&shared))
     }
 
     pub(crate) fn from_shared_state(shared: Arc<State<T>>) -> Self {
@@ -93,13 +97,13 @@ impl<T: Clone> Sender<T> {
     }
 }
 
-impl<T: Clone> Clone for Sender<T> {
+impl<T: Clone> Clone for Channel<T> {
     fn clone(&self) -> Self {
         Self::from_shared_state(Arc::clone(&self.shared))
     }
 }
 
-impl<T> Drop for Sender<T> {
+impl<T> Drop for Channel<T> {
     fn drop(&mut self) {
         self.shared.num_writers.fetch_sub(1, Ordering::Release);
     }

@@ -113,10 +113,6 @@ for i in [1, 2, 3, 4] {
 
 "#]
 
-use std::sync::Arc;
-
-use crate::prelude::*;
-
 /// Error types
 pub mod error;
 
@@ -133,17 +129,7 @@ pub(crate) mod state;
 #[cfg(feature = "debug")]
 pub mod debug;
 
-/// Create a new mpmc broadcast channel with the provided capacity.
-pub fn channel<T: Clone>(capacity: usize) -> Sender<T> {
-    assert!(capacity > 0, "Capacity needs to be greater than 0");
-
-    let shared = Arc::new(State::new(capacity));
-
-    Sender::from_shared_state(Arc::clone(&shared))
-}
-
 pub mod prelude {
-    pub use crate::channel;
     pub use crate::error::*;
     pub use crate::receiver::*;
     pub(crate) use crate::seat::*;
