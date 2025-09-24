@@ -15,6 +15,11 @@ pub enum SendError<T> {
     Full(T),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum BlockingSendError<T> {
+    Disconnected(T),
+}
+
 pub enum InnerRecvError {
     Disconnected,
     Empty,

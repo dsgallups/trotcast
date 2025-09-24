@@ -20,41 +20,56 @@ impl<T: Clone> Sender<T> {
         Receiver::new(Arc::clone(&self.shared))
     }
 
-    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
+    fn send_inner(&self, value: T, blocking: bool) -> Result<(), SendError<T>> {
         if self.shared.num_readers.load(Ordering::Relaxed) == 0 {
             return Err(SendError::Disconnected(value));
         }
 
-        // I need sole access to the tail. other writers must wait on me.
-        let mut tail_lock = self.shared.internal_tail.write().unwrap();
+        loop {
+            // I need sole access to the tail. other writers must wait on me.
+            let mut tail_lock = self.shared.internal_tail.write().unwrap();
 
-        let fence = (tail_lock.0 + 1) % self.shared.len;
+            let fence = (tail_lock.0 + 1) % self.shared.len;
 
-        let required_reads = unsafe { (&*self.shared.ring[fence].state.get()).required_reads };
+            let required_reads = unsafe { (&*self.shared.ring[fence].state.get()).required_reads };
 
-        // the fence has not yet been cleared of reads.
-        if required_reads.saturating_sub(self.shared.ring[fence].num_reads.load(Ordering::SeqCst))
-            != 0
-        {
-            return Err(SendError::Full(value));
+            // the fence has not yet been cleared of reads.
+            if required_reads
+                .saturating_sub(self.shared.ring[fence].num_reads.load(Ordering::SeqCst))
+                != 0
+            {
+                if blocking {
+                    continue;
+                } else {
+                    return Err(SendError::Full(value));
+                }
+            }
+            let seat = tail_lock.0;
+
+            // This is free to write!
+            let state = unsafe { &mut *self.shared.ring[seat].state.get() };
+            state.val = Some(value);
+
+            state.required_reads = self.shared.num_readers.load(Ordering::SeqCst);
+
+            // set the tail last and then unlock check_writing
+            let tail = (seat + 1) % self.shared.len;
+
+            self.shared.ring[seat].num_reads.store(0, Ordering::SeqCst);
+            self.shared.tail.store(tail, Ordering::SeqCst);
+            tail_lock.0 = tail;
+            return Ok(());
         }
+    }
+    pub fn blocking_send(&self, value: T) -> Result<(), BlockingSendError<T>> {
+        self.send_inner(value, true).map_err(|e| match e {
+            SendError::Disconnected(val) => BlockingSendError::Disconnected(val),
+            _ => unreachable!(),
+        })
+    }
 
-        let seat = tail_lock.0;
-
-        // This is free to write!
-        let state = unsafe { &mut *self.shared.ring[seat].state.get() };
-        state.val = Some(value);
-
-        state.required_reads = self.shared.num_readers.load(Ordering::SeqCst);
-
-        // set the tail last and then unlock check_writing
-        let tail = (seat + 1) % self.shared.len;
-
-        self.shared.ring[seat].num_reads.store(0, Ordering::SeqCst);
-        self.shared.tail.store(tail, Ordering::SeqCst);
-        tail_lock.0 = tail;
-
-        Ok(())
+    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
+        self.send_inner(value, false)
     }
 }
 
