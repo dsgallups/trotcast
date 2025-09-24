@@ -38,10 +38,11 @@ Recievers will not lock any `Mutex` or `RwLock`.
 
 ```
 // Create a broadcast channel with a capacity of 2
-let (tx, mut rx1) = trotcast::channel(2);
+let tx = trotcast::channel(2);
 
-// Clone the sender and receiver for multiple producers/consumers
+// Clone the sender, and create receivers for multiple producers/consumers
 let tx2 = tx.clone();
+let mut rx1 = tx.spawn_rx();
 let mut rx2 = rx1.clone();
 
 std::thread::spawn(move || {
@@ -133,15 +134,12 @@ pub(crate) mod state;
 pub mod debug;
 
 /// Create a new mpmc broadcast channel with the provided capacity.
-pub fn channel<T: Clone>(capacity: usize) -> (Sender<T>, Receiver<T>) {
+pub fn channel<T: Clone>(capacity: usize) -> Sender<T> {
     assert!(capacity > 0, "Capacity needs to be greater than 0");
 
     let shared = Arc::new(State::new(capacity));
 
-    let sender = Sender::new(Arc::clone(&shared));
-    let receiver = Receiver::new(shared);
-
-    (sender, receiver)
+    Sender::new(Arc::clone(&shared))
 }
 
 pub mod prelude {
