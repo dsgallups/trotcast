@@ -5,6 +5,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+/// A slot in the ring buffer that holds a value and tracks read operations.
 pub(crate) struct Seat<T> {
     // the number of reads.
     // Readers never need to check if writing, because
@@ -78,6 +79,7 @@ impl<T> Deref for MutSeatState<T> {
     }
 }
 
+/// State of a seat in the ring buffer containing the value and read requirements.
 pub struct SeatState<T> {
     pub(crate) required_reads: usize,
     pub(crate) val: Option<T>,

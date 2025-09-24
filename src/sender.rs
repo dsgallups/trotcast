@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
+/// A sender handle for the broadcast channel that allows sending messages to all receivers.
 pub struct Sender<T> {
     shared: Arc<State<T>>,
 }

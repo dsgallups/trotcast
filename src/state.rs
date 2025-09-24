@@ -2,9 +2,11 @@ use std::sync::{RwLock, atomic::AtomicUsize};
 
 use crate::prelude::*;
 
+/// Wrapper for the tail position in the ring buffer.
 #[derive(Default)]
 pub(crate) struct Tail(pub usize);
 
+/// Core state of the broadcast channel managing the ring buffer and synchronization.
 pub struct State<T> {
     /// a ring buffer.
     pub(crate) ring: Vec<Seat<T>>,

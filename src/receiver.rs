@@ -1,6 +1,12 @@
 use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
+/// A receiver handle for the broadcast channel that allows for consuming messages.
+///
+/// ## Notes
+///
+/// If you have a receiver and don't read from it, that receiver
+/// will block other receivers from receiving messages.
 pub struct Receiver<T> {
     pub(crate) shared: Arc<State<T>>,
     pub(crate) closed: bool,
@@ -63,12 +69,7 @@ impl<T: Clone> Receiver<T> {
         }
 
         let head = self.head;
-        // doesn't fix 2
-        // while self.shared.ring[head].check_writing.load(Ordering::SeqCst) {
-        //     hint::spin_loop();
-        // }
         let ret = self.shared.ring[head].take();
-
         self.head = (head + 1) % self.shared.len;
         Ok(ret)
     }

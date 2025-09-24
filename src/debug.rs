@@ -2,6 +2,7 @@ use std::sync::{Arc, atomic::Ordering};
 
 use crate::state::State;
 
+/// Debug wrapper for accessing the internal state of the broadcast channel.
 pub struct Debug<T> {
     pub shared: Arc<State<T>>,
 }
