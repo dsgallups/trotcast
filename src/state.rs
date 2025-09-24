@@ -28,7 +28,7 @@ impl<T: Clone> State<T> {
             num_readers: AtomicUsize::new(0),
         }
     }
-    pub fn send(&self, id: usize, value: T) -> Result<(), SendError<T>> {
+    pub fn send(&self, value: T) -> Result<(), SendError<T>> {
         // from Jon's notes in `bus`
         // we want to check if the next element over is free to ensure that we always leave one
         // empty space between the head and the tail. This is necessary so that readers can
