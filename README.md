@@ -1,6 +1,8 @@
 # `Trotcast`
 
-A parked crate for an `mpmc` broadcast impl
+a `mpmc` broadcast impl.
+
+See the docs for more information.
 
 
 
@@ -11,6 +13,8 @@ A parked crate for an `mpmc` broadcast impl
 A sender handle for the broadcast channel that allows sending messages to all receivers.
 
 You can clone senders. If you need another `Receiver`, you can call `Receiver::spawn_rx`.
+
+Senders will lock a `RwLock` when writing. I tried to not do this. If this behavior is undesirable, and you are aware of a better solution, please let me know!
 
 ---
 
@@ -25,3 +29,5 @@ the state of the non-reading receiver.
 
 
 You can clone receivers. If you need another `Sender`, you can call `Receiver::spawn_tx`.
+
+Recievers will not lock any `Mutex` or `RwLock`.
