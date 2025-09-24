@@ -42,23 +42,23 @@ fn main() {
         }
     });
 
-    let sender_2 = thread::spawn({
-        let s2 = tx.clone();
-        move || {
-            let mut x = 990.;
-            loop {
-                //std::thread::sleep(Duration::from_millis(400));
-                loop {
-                    if s2.send(x).is_err() {
-                        continue;
-                    } else {
-                        break;
-                    }
-                }
-                x /= 2.;
-            }
-        }
-    });
+    // let sender_2 = thread::spawn({
+    //     let s2 = tx.clone();
+    //     move || {
+    //         let mut x = 990.;
+    //         loop {
+    //             //std::thread::sleep(Duration::from_millis(400));
+    //             loop {
+    //                 if s2.send(x).is_err() {
+    //                     continue;
+    //                 } else {
+    //                     break;
+    //                 }
+    //             }
+    //             x /= 2.;
+    //         }
+    //     }
+    // });
     /*
 
     let sender_1 = thread::spawn({
@@ -87,7 +87,7 @@ fn main() {
             loop {
                 match rx_1.try_recv() {
                     Ok(msg) => {
-                        info!("RX1({count}) msg: {msg}");
+                        //info!("RX1({count}) msg: {msg}");
                         _ = tx.send((1, msg, count, rx_1.head));
                         count += 1;
                         //std::thread::sleep(Duration::from_millis(100));
@@ -105,60 +105,81 @@ fn main() {
     //
     // I think it's possible that the receiver's head is sitting behind the tail which is no good.
 
+    let i = 2;
     thread::spawn({
-        let dbger = tx.debugger();
+        let mut my_rx = tx.spawn_rx();
+        let tx = tx_vals.clone();
         move || {
-            let mut rx_1_head = None;
-            let mut rx_2_head = None;
+            let mut count = 0;
             loop {
-                std::thread::sleep(Duration::from_secs(1));
-
-                info!("{}", dbger.print_state());
-                while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
-                    if id == 1 {
-                        rx_1_head = Some(head);
-                    } else {
-                        rx_2_head = Some(head);
+                match my_rx.recv() {
+                    Ok(msg) => {
+                        //info!("RX{i}({count}) msg: {msg}");
+                        _ = tx.send((2, msg, count, my_rx.head));
+                        count += 1;
+                        // if count > 30 {
+                        //     warn!("Dropped RX{i}");
+                        //     break;
+                        // }
+                    }
+                    Err(e) => {
+                        info!("Error: {e:?}");
                     }
                 }
-                info!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
             }
         }
     });
 
-    let mut i = 2;
+    let dbger = tx.debugger();
+    let mut rx_1_head = None;
+    let mut rx_2_head = None;
     loop {
-        // std::thread::sleep(Duration::from_secs(2));
+        std::thread::sleep(Duration::from_secs(1));
 
-        // for i in 0..((i % 4) + 2) {
-        //     std::thread::sleep(Duration::from_millis(2));
-        //     thread::spawn({
-        //         let mut my_rx = tx.spawn_rx();
-        //         let tx = tx_vals.clone();
-        //         move || {
-        //             let mut count = 0;
-        //             loop {
-        //                 match my_rx.recv() {
-        //                     Ok(msg) => {
-        //                         info!("RX{i}({count}) msg: {msg}");
-        //                         //_ = tx.send((2, msg, count, my_rx.head));
-        //                         count += 1;
-        //                         if count > 30 {
-        //                             warn!("Dropped RX{i}");
-        //                             break;
-        //                         }
-        //                     }
-        //                     Err(e) => {
-        //                         info!("Error: {e:?}");
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     });
-        // }
-
-        // i += 1;
+        while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
+            if id == 1 {
+                rx_1_head = Some(head);
+            } else {
+                rx_2_head = Some(head);
+            }
+        }
+        info!("{}", dbger.print_state());
+        info!("rx_1_head: {rx_1_head:?}\nrx_2_head: {rx_2_head:?}");
     }
+
+    // let mut i = 2;
+    // loop {
+    //     std::thread::sleep(Duration::from_secs(2));
+
+    //     for i in 0..((i % 4) + 2) {
+    //         std::thread::sleep(Duration::from_millis(2));
+    //         thread::spawn({
+    //             let mut my_rx = tx.spawn_rx();
+    //             let tx = tx_vals.clone();
+    //             move || {
+    //                 let mut count = 0;
+    //                 loop {
+    //                     match my_rx.recv() {
+    //                         Ok(msg) => {
+    //                             info!("RX{i}({count}) msg: {msg}");
+    //                             _ = tx.send((2, msg, count, my_rx.head));
+    //                             count += 1;
+    //                             if count > 30 {
+    //                                 warn!("Dropped RX{i}");
+    //                                 break;
+    //                             }
+    //                         }
+    //                         Err(e) => {
+    //                             info!("Error: {e:?}");
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         });
+    //     }
+
+    //     i += 1;
+    // }
 
     // let mut recv1 = Vec::new();
     // let mut recv2 = Vec::new();

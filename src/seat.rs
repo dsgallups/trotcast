@@ -5,6 +5,10 @@ use std::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
+/*
+0b1... means
+ */
+
 pub(crate) struct Seat<T> {
     // the number of reads.
     // Readers never need to check if writing, because
@@ -14,7 +18,8 @@ pub(crate) struct Seat<T> {
     // In the event a read and a write happen at the same time,
     // the sender will fail first
     pub(crate) num_reads: AtomicUsize,
-    pub(crate) check_writing: AtomicBool,
+    //pub(crate) check_writing: AtomicBool,
+    pub(crate) num_writes: AtomicUsize,
     pub(crate) state: MutSeatState<T>,
 }
 
@@ -22,11 +27,12 @@ impl<T> Default for Seat<T> {
     fn default() -> Self {
         Self {
             num_reads: AtomicUsize::new(0),
-            check_writing: AtomicBool::new(false),
+            //check_writing: AtomicBool::new(false),
             state: MutSeatState(UnsafeCell::new(SeatState {
                 required_reads: 0,
                 val: None,
             })),
+            num_writes: AtomicUsize::new(0),
         }
     }
 }
@@ -36,7 +42,8 @@ impl<T> fmt::Debug for Seat<T> {
         f.debug_struct("Seat")
             .field("num_reads", &self.num_reads)
             .field("state", &self.state)
-            .field("check_writing", &self.check_writing)
+            //.field("check_writing", &self.check_writing)
+            .field("num_writes", &self.num_writes)
             .finish()
     }
 }

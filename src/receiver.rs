@@ -1,8 +1,5 @@
 use crate::prelude::*;
-use std::{
-    hint,
-    sync::{Arc, atomic::Ordering},
-};
+use std::sync::{Arc, atomic::Ordering};
 
 pub struct Receiver<T> {
     pub(crate) shared: Arc<State<T>>,
@@ -90,5 +87,16 @@ impl<T: Clone> Clone for Receiver<T> {
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         self.shared.num_readers.fetch_sub(1, Ordering::Release);
+        let mut cur = self.head;
+        let tail = self.shared.tail.load(Ordering::SeqCst);
+        // this probably means that some readers will lose info.
+        while cur != tail {
+            #[cfg(feature = "debug")]
+            tracing::info!("Drop Proc: \nAdding 1 to {cur}");
+            self.shared.ring[cur]
+                .num_reads
+                .fetch_add(1, Ordering::Release);
+            cur = (cur + 1) % self.shared.len;
+        }
     }
 }
