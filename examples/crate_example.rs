@@ -6,7 +6,7 @@ fn main() {
     // Create a broadcast channel with a capacity of 2
     let tx = Channel::new(2);
 
-    // Clone the sender and receiver for multiple producers/consumers
+    // Clone the channel and receiver for multiple producers/consumers
     let tx2 = tx.clone();
     let mut rx1 = tx.spawn_rx();
     let mut rx2 = rx1.clone();

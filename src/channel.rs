@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
-/// A sender handle for the broadcast channel that allows sending messages to all receivers.
+/// A channel handle for the broadcast channel that allows sending messages to all receivers.
 pub struct Channel<T> {
     shared: Arc<State<T>>,
 }
@@ -20,7 +20,7 @@ impl<T: Clone> Channel<T> {
         Self { shared }
     }
 
-    /// Spawns a debugger from the sender
+    /// Spawns a debugger from the channel
     ///
     /// Enabled with the `debug` feature
     #[cfg(feature = "debug")]

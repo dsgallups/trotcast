@@ -1,7 +1,7 @@
 #![doc = r#"
 A multi-producer, multi-consumer broadcast channel implementation.
 
-This crate provides a broadcast channel where multiple senders can send messages
+This crate provides a broadcast channel where multiple channels can send messages
 and multiple receivers will each receive a copy of every message sent.
 
 # Overview
@@ -9,15 +9,15 @@ and multiple receivers will each receive a copy of every message sent.
 There are three structures to handle message passing
 
 ## [`trotcast::channel`](channel)
-Creates a new channel with a single sender and receiver.
+Creates a new channel with a single channel and receiver.
 
-## [`Sender`]
+## [`Channel`]
 
-A sender handle for the broadcast channel that allows sending messages to all receivers.
+A channel handle for the broadcast channel that allows sending messages to all receivers.
 
-You can clone senders. If you need another `Receiver`, you can call `Receiver::spawn_rx`.
+You can clone channels. If you need another `Receiver`, you can call `Receiver::spawn_rx`.
 
-Senders will lock a `RwLock` when writing. I tried to not do this. If this behavior is undesirable, and you are aware of a better solution, please let me know!
+Channels will lock a `RwLock` when writing. I tried to not do this. If this behavior is undesirable, and you are aware of a better solution, please let me know!
 
 
 ## [`Receiver`]
@@ -30,7 +30,7 @@ However, other receivers will be able to receiver prior messages until reaching
 the state of the non-reading receiver.
 
 
-You can clone receivers. If you need another `Sender`, you can call `Receiver::spawn_tx`.
+You can clone receivers. If you need another `Channel`, you can call `Receiver::clone_channel`.
 
 Recievers will not lock any `Mutex` or `RwLock`.
 
@@ -41,7 +41,7 @@ use trotcast::prelude::*;
 // Create a broadcast channel with a capacity of 2
 let tx = Channel::new(2);
 
-// Clone the sender, and create receivers for multiple producers/consumers
+// Clone the channel, and create receivers for multiple producers/consumers
 let tx2 = tx.clone();
 let mut rx1 = tx.spawn_rx();
 let mut rx2 = rx1.clone();
