@@ -2,8 +2,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::prelude::*;
 
-/// TODO: we will need to
-/// map dropped receivers to indices.
 pub struct State<T> {
     /// a ring buffer.
     pub(crate) ring: Vec<Seat<T>>,
@@ -14,7 +12,7 @@ pub struct State<T> {
     pub(crate) num_writers: AtomicUsize,
     pub(crate) len: usize,
     /// keeps track of readers
-    num_readers: AtomicUsize,
+    pub(crate) num_readers: AtomicUsize,
 }
 
 impl<T: Clone> State<T> {
@@ -62,9 +60,29 @@ impl<T: Clone> State<T> {
 
         // Note: I tried having writers write to values later in the tail.
         // But this didn't work because you need a better sync implementation.
+
+        // The element over has to be free to ensure there's always
+        // an empty space between the head and the tail.
+        //let fence = (tail + 1) % self.len;
+
+        if self.num_readers.load(Ordering::Relaxed) == 0 {
+            return Err(SendError::Disconnected(value));
+        }
         let mut i = 0;
         let seat = loop {
             let tail = self.tail.load(Ordering::SeqCst);
+
+            let fence = (tail + 1) % self.len;
+
+            // self.expected(fence) expect we haven't yet implemented "reader left already" (rleft)
+            let required_reads = unsafe { (&*self.ring[fence].state.get()).required_reads };
+
+            // the fence has not yet been cleared of reads.
+            if required_reads.saturating_sub(self.ring[fence].num_reads.load(Ordering::SeqCst)) != 0
+            {
+                continue;
+            }
+
             if self.ring[tail]
                 .check_writing
                 .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -72,14 +90,25 @@ impl<T: Clone> State<T> {
             {
                 i += 1;
                 if i > 100 {
-                    panic!("seems like ill loop forever. what happened?");
+                    //panic!("no");
+                    return Err(SendError::Full(value));
                 }
                 //yeah. SPIN LOCK.
                 continue;
             };
+
+            //tracing::info!("sender {id} is at {tail}");
             break tail;
         };
 
+        // this code patches a bug where a reader might receive new data before it has read the previous. not sure what's up.
+        //
+        // process:
+        // the thread takes a value at 1. num reads at 1 becomes 1.
+        // thread increments head to 0. tail is still 0. what happened
+        //
+        //
+        //
         let required_reads = unsafe { (&*self.ring[seat].state.get()).required_reads };
 
         if required_reads.saturating_sub(self.ring[seat].num_reads.load(Ordering::SeqCst)) != 0 {
@@ -89,28 +118,24 @@ impl<T: Clone> State<T> {
         }
 
         // This is free to write!
-        self.ring[seat].num_reads.store(0, Ordering::Release);
         let state = unsafe { &mut *self.ring[seat].state.get() };
-        state.required_reads = self.num_readers.load(Ordering::SeqCst);
         state.val = Some(value);
+
+        state.required_reads = self.num_readers.load(Ordering::SeqCst);
 
         // set the tail last and then unlock check_writing
         let tail = (seat + 1) % self.len;
-        self.tail.store(tail, Ordering::Release);
+        // the race condition is instantly after this is stored,
+        // a thread reads the seat.
+        // in another thread, before tail is stored, the value is 1 because the thread read.
+        // then, the other thread sets that value to zero. the reader sets their head up one.
+        // it's got all to do with `num_reads`.
+        // wait, head == tail.
+        // so that means tail is wrong. tail is pointing at something that was read.
+        self.ring[seat].num_reads.store(0, Ordering::SeqCst);
+        self.tail.store(tail, Ordering::SeqCst);
         self.ring[seat].check_writing.store(false, Ordering::SeqCst);
 
         Ok(())
     }
-
-    pub(crate) fn add_reader(&self) {
-        self.num_readers.fetch_add(1, Ordering::Release);
-    }
-
-    pub(crate) fn add_writer(&self) {
-        self.num_writers.fetch_add(1, Ordering::Release);
-    }
 }
-
-// pub(crate) fn ring_id(val: usize, len: usize) -> usize {
-//     (val + 1) % len
-// }

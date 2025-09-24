@@ -20,8 +20,6 @@ pub(crate) struct Seat<T> {
 
 impl<T> Default for Seat<T> {
     fn default() -> Self {
-        // this is an empty seat. null pointer.
-        // Nothing here.
         Self {
             num_reads: AtomicUsize::new(0),
             check_writing: AtomicBool::new(false),
@@ -33,9 +31,19 @@ impl<T> Default for Seat<T> {
     }
 }
 
+impl<T> fmt::Debug for Seat<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Seat")
+            .field("num_reads", &self.num_reads)
+            .field("state", &self.state)
+            .field("check_writing", &self.check_writing)
+            .finish()
+    }
+}
+
 impl<T: Clone> Seat<T> {
     pub(crate) fn take(&self) -> T {
-        let num_reads = self.num_reads.load(Ordering::Acquire);
+        let num_reads = self.num_reads.load(Ordering::SeqCst);
 
         let state = unsafe { &*self.state.get() };
         let required_reads = state.required_reads;
@@ -51,7 +59,8 @@ impl<T: Clone> Seat<T> {
             state.val.clone().unwrap()
         };
 
-        self.num_reads.fetch_add(1, Ordering::AcqRel);
+        // race condition: line state.rs:111
+        self.num_reads.fetch_add(1, Ordering::SeqCst);
         v
     }
 }
@@ -59,7 +68,9 @@ impl<T: Clone> Seat<T> {
 pub(crate) struct MutSeatState<T>(UnsafeCell<SeatState<T>>);
 impl<T> fmt::Debug for MutSeatState<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("MutSeatState").field(&self.0).finish()
+        f.debug_tuple("MutSeatState")
+            .field(&unsafe { &*self.0.get() }.required_reads)
+            .finish()
     }
 }
 unsafe impl<T> Send for MutSeatState<T> {}

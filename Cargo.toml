@@ -9,4 +9,12 @@ documentation = "https://docs.rs/trotcast"
 readme = "README.md"
 edition = "2024"
 
+[features]
+debug = ["tracing"]
+
 [dependencies]
+tracing = {version = "0.1", optional = true}
+
+[dev-dependencies]
+tracing-subscriber =  "0.3"
+crossbeam-channel = "0.5.15"

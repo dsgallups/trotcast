@@ -2,38 +2,30 @@ use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
 pub struct Receiver<T> {
-    shared: Arc<State<T>>,
-    closed: bool,
+    pub(crate) shared: Arc<State<T>>,
+    pub(crate) closed: bool,
+    #[cfg(feature = "debug")]
     pub head: usize,
-}
-impl<T> Receiver<T> {
-    pub(crate) fn new(shared: Arc<State<T>>) -> Self {
-        Self {
-            shared,
-            closed: false,
-            head: 0,
-        }
-    }
-}
-impl<T: Clone> Clone for Receiver<T> {
-    fn clone(&self) -> Self {
-        self.shared.add_reader();
-        Self {
-            shared: Arc::clone(&self.shared),
-            closed: self.closed,
-            head: self.head,
-        }
-    }
+    #[cfg(not(feature = "debug"))]
+    pub(crate) head: usize,
 }
 
 impl<T: Clone> Receiver<T> {
+    pub(crate) fn new(shared: Arc<State<T>>) -> Self {
+        shared.num_readers.fetch_add(1, Ordering::Release);
+        Self {
+            closed: shared.num_writers.load(Ordering::Relaxed) == 0,
+            head: shared.tail.load(Ordering::Relaxed),
+            shared,
+        }
+    }
+    pub fn spawn_tx(&self) -> Sender<T> {
+        Sender::new(Arc::clone(&self.shared))
+    }
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
         self.recv_inner(RecvCondition::Try).map_err(|e| match e {
             InnerRecvError::Disconnected => TryRecvError::Disconnected,
             InnerRecvError::Empty => TryRecvError::Empty,
-            InnerRecvError::Invalid => {
-                panic!("invalidness");
-            }
         })
     }
     pub fn recv(&mut self) -> Result<T, RecvError> {
@@ -81,4 +73,15 @@ impl<T: Clone> Receiver<T> {
 pub(crate) enum RecvCondition {
     Try,
     Block,
+}
+
+impl<T: Clone> Clone for Receiver<T> {
+    fn clone(&self) -> Self {
+        Receiver::new(Arc::clone(&self.shared))
+    }
+}
+impl<T> Drop for Receiver<T> {
+    fn drop(&mut self) {
+        self.shared.num_readers.fetch_sub(1, Ordering::Release);
+    }
 }

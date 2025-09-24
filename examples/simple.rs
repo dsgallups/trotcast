@@ -52,8 +52,10 @@ fn main() {
     let receiver_2 = thread::spawn({
         let mut rx_2 = rx.clone();
         move || {
+            let mut count = 0;
             while let Ok(msg) = rx_2.recv() {
-                println!("RX2({}) msg: {msg}", rx_2.head);
+                println!("RX2({count}) msg: {msg}");
+                count += 1;
             }
         }
     });
