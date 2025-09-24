@@ -9,7 +9,6 @@ fn main() {
         .init();
     let (tx, rx) = channel::<f32>(20);
 
-    // sender 1 and 2 can send messages by cloning tx.
     thread::spawn({
         let s1 = tx.clone();
         move || {
@@ -44,8 +43,6 @@ fn main() {
     });
 
     let (tx_vals, receiver_vals) = crossbeam_channel::unbounded();
-
-    // both receiver_1 and receiver_2 will recieve the same messages
 
     thread::spawn({
         let mut rx_1 = rx.clone();
@@ -82,12 +79,10 @@ fn main() {
         }
     });
 
-    //let handles = [sender_1, sender_2, receiver_1, receiver_2];
     let dbger = tx.debugger();
     let mut rx_1_head = None;
     let mut rx_2_head = None;
     loop {
-        info!("in here");
         std::thread::sleep(Duration::from_secs(1));
 
         while let Ok((id, _, _, head)) = receiver_vals.try_recv() {
