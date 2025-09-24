@@ -6,7 +6,12 @@ pub struct Sender<T> {
     shared: Arc<State<T>>,
 }
 impl<T: Clone> Sender<T> {
-    pub(crate) fn new(shared: Arc<State<T>>) -> Self {
+    /// Create a new channel
+    pub fn new(capacity: usize) -> Self {
+        crate::channel(capacity)
+    }
+
+    pub(crate) fn from_shared_state(shared: Arc<State<T>>) -> Self {
         shared.num_writers.fetch_add(1, Ordering::Release);
         Self { shared }
     }
@@ -90,7 +95,7 @@ impl<T: Clone> Sender<T> {
 
 impl<T: Clone> Clone for Sender<T> {
     fn clone(&self) -> Self {
-        Self::new(Arc::clone(&self.shared))
+        Self::from_shared_state(Arc::clone(&self.shared))
     }
 }
 

@@ -139,7 +139,7 @@ pub fn channel<T: Clone>(capacity: usize) -> Sender<T> {
 
     let shared = Arc::new(State::new(capacity));
 
-    Sender::new(Arc::clone(&shared))
+    Sender::from_shared_state(Arc::clone(&shared))
 }
 
 pub mod prelude {

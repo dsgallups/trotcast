@@ -27,7 +27,7 @@ impl<T: Clone> Receiver<T> {
     }
     /// Spawn a [`Sender`]
     pub fn spawn_tx(&self) -> Sender<T> {
-        Sender::new(Arc::clone(&self.shared))
+        Sender::from_shared_state(Arc::clone(&self.shared))
     }
     /// Try to receive a message.
     ///
