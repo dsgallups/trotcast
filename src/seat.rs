@@ -5,8 +5,6 @@ use std::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use tracing::info;
-
 pub(crate) struct Seat<T> {
     // the number of reads.
     // Readers never need to check if writing, because
