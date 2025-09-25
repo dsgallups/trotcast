@@ -1,23 +1,20 @@
 #![doc = r#"
 A multi-producer, multi-consumer broadcast channel implementation.
 
-This crate provides a broadcast channel where multiple senders can send messages
+This crate provides a broadcast channel where multiple channels can send messages
 and multiple receivers will each receive a copy of every message sent.
 
 # Overview
 
-There are three structures to handle message passing
+There are just two structures you need to consider:
 
-## [`trotcast::channel`](channel)
-Creates a new channel with a single sender and receiver.
+## [`Channel`]
 
-## [`Sender`]
+A channel handle for the broadcast channel that allows sending messages to all receivers.
 
-A sender handle for the broadcast channel that allows sending messages to all receivers.
+You can clone channels. If you need another `Receiver`, you can call `Receiver::spawn_rx`.
 
-You can clone senders. If you need another `Receiver`, you can call `Receiver::spawn_rx`.
-
-Senders will lock a `RwLock` when writing. I tried to not do this. If this behavior is undesirable, and you are aware of a better solution, please let me know!
+Channels will lock a `RwLock` when writing. I tried to not do this. If this behavior is undesirable, and you are aware of a better solution, please let me know!
 
 
 ## [`Receiver`]
@@ -30,17 +27,18 @@ However, other receivers will be able to receiver prior messages until reaching
 the state of the non-reading receiver.
 
 
-You can clone receivers. If you need another `Sender`, you can call `Receiver::spawn_tx`.
+You can clone receivers. If you need another `Channel`, you can call `Receiver::clone_channel`.
 
 Recievers will not lock any `Mutex` or `RwLock`.
 
 # Example
 
 ```
+use trotcast::prelude::*;
 // Create a broadcast channel with a capacity of 2
-let tx = trotcast::channel(2);
+let tx = Channel::new(2);
 
-// Clone the sender, and create receivers for multiple producers/consumers
+// Clone the channel, and create receivers for multiple producers/consumers
 let tx2 = tx.clone();
 let mut rx1 = tx.spawn_rx();
 let mut rx2 = rx1.clone();
@@ -113,18 +111,14 @@ for i in [1, 2, 3, 4] {
 
 "#]
 
-use std::sync::Arc;
-
-use crate::prelude::*;
-
 /// Error types
 pub mod error;
 
 mod receiver;
 pub use receiver::*;
 
-mod sender;
-pub use sender::*;
+mod channel;
+pub use channel::*;
 
 pub(crate) mod seat;
 
@@ -133,21 +127,11 @@ pub(crate) mod state;
 #[cfg(feature = "debug")]
 pub mod debug;
 
-/// Create a new mpmc broadcast channel with the provided capacity.
-pub fn channel<T: Clone>(capacity: usize) -> Sender<T> {
-    assert!(capacity > 0, "Capacity needs to be greater than 0");
-
-    let shared = Arc::new(State::new(capacity));
-
-    Sender::new(Arc::clone(&shared))
-}
-
 pub mod prelude {
-    pub use crate::channel;
+    pub use crate::channel::*;
     pub use crate::error::*;
     pub use crate::receiver::*;
     pub(crate) use crate::seat::*;
-    pub use crate::sender::*;
     pub(crate) use crate::state::*;
 
     #[cfg(feature = "debug")]

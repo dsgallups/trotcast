@@ -1,17 +1,26 @@
 use crate::prelude::*;
 use std::sync::{Arc, atomic::Ordering};
 
-/// A sender handle for the broadcast channel that allows sending messages to all receivers.
-pub struct Sender<T> {
+/// A channel handle for the broadcast channel that allows sending messages to all receivers.
+pub struct Channel<T> {
     shared: Arc<State<T>>,
 }
-impl<T: Clone> Sender<T> {
-    pub(crate) fn new(shared: Arc<State<T>>) -> Self {
+impl<T: Clone> Channel<T> {
+    /// Create a new channel
+    pub fn new(capacity: usize) -> Self {
+        assert!(capacity > 0, "Capacity needs to be greater than 0");
+
+        let shared = Arc::new(State::new(capacity));
+
+        Self::from_shared_state(Arc::clone(&shared))
+    }
+
+    pub(crate) fn from_shared_state(shared: Arc<State<T>>) -> Self {
         shared.num_writers.fetch_add(1, Ordering::Release);
         Self { shared }
     }
 
-    /// Spawns a debugger from the sender
+    /// Spawns a debugger from the channel
     ///
     /// Enabled with the `debug` feature
     #[cfg(feature = "debug")]
@@ -88,13 +97,13 @@ impl<T: Clone> Sender<T> {
     }
 }
 
-impl<T: Clone> Clone for Sender<T> {
+impl<T: Clone> Clone for Channel<T> {
     fn clone(&self) -> Self {
-        Self::new(Arc::clone(&self.shared))
+        Self::from_shared_state(Arc::clone(&self.shared))
     }
 }
 
-impl<T> Drop for Sender<T> {
+impl<T> Drop for Channel<T> {
     fn drop(&mut self) {
         self.shared.num_writers.fetch_sub(1, Ordering::Release);
     }

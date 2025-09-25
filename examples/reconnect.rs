@@ -1,5 +1,7 @@
+use trotcast::prelude::*;
+
 fn main() {
-    let tx = trotcast::channel::<i32>(4);
+    let tx = Channel::new(4);
 
     tx.send(5).unwrap_err();
 

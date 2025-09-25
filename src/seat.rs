@@ -13,7 +13,7 @@ pub(crate) struct Seat<T> {
     // write based on number of reads.
     //
     // In the event a read and a write happen at the same time,
-    // the sender will fail first
+    // the channel will fail first
     pub(crate) num_reads: AtomicUsize,
     pub(crate) state: MutSeatState<T>,
 }

@@ -7,7 +7,7 @@ fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();
-    let tx = channel::<f32>(20);
+    let tx = Channel::new(20);
     let rx = tx.spawn_rx();
 
     thread::spawn({
