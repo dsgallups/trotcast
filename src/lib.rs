@@ -6,10 +6,7 @@ and multiple receivers will each receive a copy of every message sent.
 
 # Overview
 
-There are three structures to handle message passing
-
-## [`trotcast::channel`](channel)
-Creates a new channel with a single channel and receiver.
+There are just two structures you need to consider:
 
 ## [`Channel`]
 
