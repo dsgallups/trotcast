@@ -1,6 +1,6 @@
 [package]
 name = "trotcast"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["dsgallups <dsgallups@protonmail.com>"]
 repository = "https://github.com/dsgallups/trotcast"
 description = "An mpmc broadcast impl"
@@ -10,9 +10,12 @@ readme = "README.md"
 edition = "2024"
 
 [features]
+default = ["std"]
+std = []
 debug = ["tracing"]
 
 [dependencies]
+spin = "0.10.0"
 tracing = {version = "0.1", optional = true}
 
 [dev-dependencies]

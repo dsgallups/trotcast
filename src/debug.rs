@@ -1,4 +1,6 @@
-use std::sync::{Arc, atomic::Ordering};
+use core::sync::atomic::Ordering;
+
+use alloc::{format, string::String, sync::Arc};
 
 use crate::state::State;
 

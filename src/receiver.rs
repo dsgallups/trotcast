@@ -1,5 +1,7 @@
+use core::sync::atomic::Ordering;
+
 use crate::prelude::*;
-use std::sync::{Arc, atomic::Ordering};
+use alloc::sync::Arc;
 
 /// A receiver handle for the broadcast channel that allows for consuming messages.
 ///

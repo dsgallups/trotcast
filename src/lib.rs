@@ -4,6 +4,8 @@ A multi-producer, multi-consumer broadcast channel implementation.
 This crate provides a broadcast channel where multiple channels can send messages
 and multiple receivers will each receive a copy of every message sent.
 
+The `no_std` version uses a `spin::Mutex`.
+
 # Overview
 
 There are just two structures you need to consider:
@@ -108,8 +110,15 @@ for i in [1, 2, 3, 4] {
     assert!(messages2.contains(&i));
 }
 ```
-
 "#]
+#![no_std]
+
+extern crate alloc;
+
+#[cfg(feature = "std")]
+extern crate std;
+
+mod mutex;
 
 /// Error types
 pub mod error;

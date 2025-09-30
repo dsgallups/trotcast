@@ -1,5 +1,8 @@
+use core::sync::atomic::Ordering;
+
+use alloc::sync::Arc;
+
 use crate::prelude::*;
-use std::sync::{Arc, atomic::Ordering};
 
 /// A channel handle for the broadcast channel that allows sending messages to all receivers.
 pub struct Channel<T> {
@@ -42,7 +45,11 @@ impl<T: Clone> Channel<T> {
 
         loop {
             // I need sole access to the tail. other writers must wait on me.
-            let mut tail_lock = self.shared.internal_tail.write().unwrap();
+            #[cfg(feature = "std")]
+            let mut tail_lock = self.shared.internal_tail.lock().unwrap();
+
+            #[cfg(not(feature = "std"))]
+            let mut tail_lock = self.shared.internal_tail.lock();
 
             let fence = (tail_lock.0 + 1) % self.shared.len;
 
