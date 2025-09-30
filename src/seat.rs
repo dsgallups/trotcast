@@ -42,7 +42,6 @@ impl<T> fmt::Debug for Seat<T> {
 impl<T: Clone> Seat<T> {
     pub(crate) fn take(&self) -> T {
         let num_reads = self.num_reads.load(Ordering::SeqCst);
-
         let state = unsafe { &*self.state.get() };
         let required_reads = state.required_reads;
         assert!(

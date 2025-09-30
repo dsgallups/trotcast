@@ -10,9 +10,11 @@ readme = "README.md"
 edition = "2024"
 
 [features]
+std = []
 debug = ["tracing"]
 
 [dependencies]
+spin = "0.10.0"
 tracing = {version = "0.1", optional = true}
 
 [dev-dependencies]

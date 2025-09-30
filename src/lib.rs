@@ -113,6 +113,11 @@ for i in [1, 2, 3, 4] {
 
 extern crate alloc;
 
+#[cfg(feature = "std")]
+extern crate std;
+
+mod mutex;
+
 /// Error types
 pub mod error;
 

@@ -45,7 +45,11 @@ impl<T: Clone> Channel<T> {
 
         loop {
             // I need sole access to the tail. other writers must wait on me.
+            #[cfg(feature = "std")]
             let mut tail_lock = self.shared.internal_tail.lock().unwrap();
+
+            #[cfg(not(feature = "std"))]
+            let mut tail_lock = self.shared.internal_tail.lock();
 
             let fence = (tail_lock.0 + 1) % self.shared.len;
 

@@ -15,7 +15,7 @@ pub struct State<T> {
     /// in theory, this is used to point where the tail will be.
     pub(crate) tail: AtomicUsize,
     /// This ensure that the state of `tail` is written to one at a time.
-    pub(crate) internal_tail: Mutex<Tail>,
+    pub(crate) internal_tail: crate::mutex::Mutex<Tail>,
     /// This keeps track of number of values to add to the writer_tail
     /// once the writer to writer_tail + 1 is complete
     pub(crate) num_writers: AtomicUsize,
@@ -31,7 +31,7 @@ impl<T: Clone> State<T> {
         Self {
             ring: (0..len).map(|_| Seat::default()).collect(),
             tail: AtomicUsize::new(0),
-            internal_tail: Mutex::new(Tail::default()),
+            internal_tail: crate::mutex::Mutex::new(Tail::default()),
             num_writers: AtomicUsize::new(0),
             len,
             num_readers: AtomicUsize::new(0),
