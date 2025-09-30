@@ -1,3 +1,6 @@
+# 0.4.0
+- `no_std` support :)
+
 # 0.3.0
 - `Sender` has been renamed to `Channel`.
 - `trotcast::channel` has been removed. use `Channel::new` instead.
