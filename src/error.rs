@@ -1,4 +1,4 @@
-use std::{error::Error, fmt};
+use core::{error::Error, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TryRecvError {

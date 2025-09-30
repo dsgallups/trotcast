@@ -1,4 +1,6 @@
-use std::sync::{Mutex, atomic::AtomicUsize};
+use core::sync::atomic::AtomicUsize;
+
+use alloc::vec::Vec;
 
 use crate::prelude::*;
 

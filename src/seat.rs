@@ -1,6 +1,6 @@
-use core::fmt;
-use std::{
+use core::{
     cell::UnsafeCell,
+    fmt,
     ops::Deref,
     sync::atomic::{AtomicUsize, Ordering},
 };

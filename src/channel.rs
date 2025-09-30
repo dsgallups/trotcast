@@ -1,5 +1,8 @@
+use core::sync::atomic::Ordering;
+
+use alloc::sync::Arc;
+
 use crate::prelude::*;
-use std::sync::{Arc, atomic::Ordering};
 
 /// A channel handle for the broadcast channel that allows sending messages to all receivers.
 pub struct Channel<T> {

@@ -108,8 +108,10 @@ for i in [1, 2, 3, 4] {
     assert!(messages2.contains(&i));
 }
 ```
-
 "#]
+#![no_std]
+
+extern crate alloc;
 
 /// Error types
 pub mod error;
