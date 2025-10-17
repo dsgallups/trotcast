@@ -1,3 +1,7 @@
+# 0.5.0
+- fix: inaccurate channel reporting when closed
+- feat: added `Channel::close` and `Receiver::close`
+
 # 0.4.0
 - `no_std` support :)
 
