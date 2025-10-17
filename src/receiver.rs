@@ -11,7 +11,6 @@ use alloc::sync::Arc;
 /// will block other receivers from receiving messages.
 pub struct Receiver<T> {
     pub(crate) shared: Arc<State<T>>,
-    pub(crate) closed: bool,
     #[cfg(feature = "debug")]
     pub head: usize,
     #[cfg(not(feature = "debug"))]
@@ -22,7 +21,6 @@ impl<T: Clone> Receiver<T> {
     pub(crate) fn new(shared: Arc<State<T>>) -> Self {
         shared.num_readers.fetch_add(1, Ordering::Release);
         Self {
-            closed: shared.num_writers.load(Ordering::Relaxed) == 0,
             head: shared.tail.load(Ordering::Relaxed),
             shared,
         }
@@ -31,6 +29,11 @@ impl<T: Clone> Receiver<T> {
     pub fn clone_channel(&self) -> Channel<T> {
         Channel::from_shared_state(Arc::clone(&self.shared))
     }
+
+    pub fn closed(&self) -> bool {
+        self.shared.num_writers.load(Ordering::Relaxed) == 0
+    }
+
     /// Try to receive a message.
     ///
     /// # Errors
@@ -54,9 +57,6 @@ impl<T: Clone> Receiver<T> {
         })
     }
     fn recv_inner(&mut self, cond: RecvCondition) -> Result<T, InnerRecvError> {
-        if self.closed {
-            return Err(InnerRecvError::Disconnected);
-        }
         let mut was_closed = false;
         loop {
             let tail = self.shared.tail.load(Ordering::Acquire);
@@ -73,7 +73,6 @@ impl<T: Clone> Receiver<T> {
                     was_closed = true;
                     continue;
                 }
-                self.closed = true;
                 return Err(InnerRecvError::Disconnected);
             }
             if cond == RecvCondition::Try {

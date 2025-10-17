@@ -33,6 +33,10 @@ impl<T: Clone> Channel<T> {
         }
     }
 
+    pub fn closed(&self) -> bool {
+        self.shared.num_readers.load(Ordering::Relaxed) == 0
+    }
+
     /// Spawns a new [`Receiver`]
     pub fn spawn_rx(&self) -> Receiver<T> {
         Receiver::new(Arc::clone(&self.shared))
